@@ -6,10 +6,10 @@ import { OrderError, applicationText, cancelOrder, confirmOrder, getProfile, lis
 import { agentConfigured, describeAgentError, resetSession, runTask, transcribe } from "./src/agent.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const isProd = process.env.NODE_ENV === "production" || process.argv.includes("--production");
 const app = express();
 app.use("/api/transcribe", express.json({ limit: "12mb" }));
 app.use(express.json({ limit: "20kb" }));
-app.use(express.static(path.join(here, "public")));
 
 const wrap = (fn) => (req, res) =>
   Promise.resolve(fn(req, res)).catch((err) => {
@@ -90,6 +90,18 @@ app.post("/api/transcribe", async (req, res) => {
     res.status(502).json({ error: describeAgentError(err) });
   }
 });
+
+// ---------- frontend (React, client/) ----------
+// Production: `npm run build` natijasi (dist/) statik beriladi.
+// Dev: Vite middleware rejimida — HMR bilan, API bilan bitta portda.
+if (isProd) {
+  app.use(express.static(path.join(here, "dist")));
+} else {
+  const [{ createServer }, { default: viteConfig }] = await Promise.all([import("vite"), import("./vite.config.js")]);
+  // configFile: false — config to'g'ridan-to'g'ri import qilinadi (node --watch vaqtinchalik fayllarni ko'rib qayta ishga tushmasin)
+  const vite = await createServer({ ...viteConfig, configFile: false, server: { middlewareMode: true }, appType: "mpa" });
+  app.use(vite.middlewares);
+}
 
 const PORT = Number(process.env.PORT) || 3000;
 app.listen(PORT, () => {
