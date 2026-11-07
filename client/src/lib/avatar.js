@@ -1,11 +1,10 @@
-"use strict";
 // Oson AI avatari — shisha shar ichidagi energiya (WebGL fragment shader).
 // Holatlar (silliq o'tish bilan): idle · thinking · working · speaking · listening
 // Kayfiyat: calm · happy · excited · concerned
-// API: OsonAvatar.mount(canvas, params?) → { setState, setMood, setLevel, setParams, getParams }
+// API: OsonAvatar.mount(canvas, params?) → { setState, setMood, setLevel, drive, setParams, getParams, destroy }
 // Sozlamalar /avatar-lab.html da tanlanib, localStorage("osonAvatarParams") orqali ilovaga o'tadi.
 
-window.OsonAvatar = (() => {
+export const OsonAvatar = (() => {
   const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
   const FRAG = `
 precision highp float;
@@ -150,7 +149,11 @@ void main(){
       setParams(p) { Object.assign(params, p); },
       getParams() { return { ...params }; },
       get debug() { return { state: st.state, mood: st.mood, level: +st.level.toFixed(3), weights: { ...st.w } }; },
+      /** Animatsiya siklini to'xtatadi (React komponenti unmount bo'lganda). */
+      destroy() { stopped = true; cancelAnimationFrame(raf); },
     };
+    let stopped = false;
+    let raf = 0;
     canvas.dataset.state = "idle";
     if (!gl) { canvas.classList.add("no-webgl"); return api; }
 
@@ -226,9 +229,9 @@ void main(){
       gl.uniform3fv(U.uColB, st.col[1]);
       gl.uniform3fv(U.uColC, st.col[2]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      requestAnimationFrame(frame);
+      if (!stopped) raf = requestAnimationFrame(frame);
     }
-    requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
     return api;
   }
   return { mount, DEFAULTS, MOODS: Object.keys(MOODS).filter((m) => m !== "listening"), STATES: Object.keys(STATE) };

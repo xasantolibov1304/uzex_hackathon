@@ -35,6 +35,7 @@ a { color: #9fb2ff; }
 .hint { color: var(--muted); font-size: 13px; }
 .up { color: var(--up); } .down { color: var(--down); }
 [hidden] { display: none !important; }
+#root { display: contents; } /* React ildizi — layout o'zgarmasin */
 
 /* ---------- header ---------- */
 .top {

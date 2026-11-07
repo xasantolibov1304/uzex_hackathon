@@ -1,13 +1,12 @@
-"use strict";
 // Agent nutqi: matnni (imkon bo'lsa) ovoz chiqarib o'qiydi va avatarni BO'G'IN RITMIDA "uradi".
 // Muhim: Chrome'ning Google ovozlari `onboundary` hodisasini yubormaydi, shuning uchun puls
 // matndan hisoblangan ritm bilan yuritiladi; `onboundary` kelsa — ritm unga sinxronlanadi.
-// Ilova (app.js) ham, Avatar Lab ham shu bitta koddan foydalanadi.
+// Ilova (App.jsx) ham, Avatar Lab ham shu bitta koddan foydalanadi.
 //
 // const sp = OsonSpeech(avatar);
 // sp.say(text, { lang: "uz", voice: true, onFrame(n, done), onEnd() });  sp.stop();  sp.hasVoice("ru")
 
-window.OsonSpeech = function (avatar) {
+export function OsonSpeech(avatar) {
   const synth = window.speechSynthesis;
   let voices = [];
   const load = () => (voices = synth ? synth.getVoices() : []);
@@ -98,5 +97,6 @@ window.OsonSpeech = function (avatar) {
     }
   }
 
-  return { say, stop, hasVoice: (l) => Boolean(pick(l)), voiceName: (l) => pick(l)?.name || null };
-};
+  const destroy = () => { stop(); synth?.removeEventListener?.("voiceschanged", load); };
+  return { say, stop, destroy, hasVoice: (l) => Boolean(pick(l)), voiceName: (l) => pick(l)?.name || null };
+}

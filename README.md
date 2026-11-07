@@ -42,8 +42,10 @@ UZEX'ning ommaviy API'si yo'q, shuning uchun HTML sahifalar serverda parse qilin
 ```bash
 npm install
 cp .env.example .env      # GEMINI_API_KEY (https://aistudio.google.com/apikey)
-npm run dev               # http://localhost:3000 (kod o'zgarsa avtomatik qayta yuklanadi)
+npm run dev               # http://localhost:3000 (server qayta yuklanadi, frontend — Vite HMR)
 ```
+
+Production: `npm start` — avval frontendni yig'adi (`vite build` → `dist/`), keyin serverni ishga tushiradi. Faqat yig'ish: `npm run build`.
 
 Ovoz bilan kiritish mikrofon ruxsatini talab qiladi. Brauzer buni faqat `localhost` yoki HTTPS'da beradi (Cloudflare tunnel ham HTTPS).
 
@@ -55,8 +57,14 @@ Ovoz bilan kiritish mikrofon ruxsatini talab qiladi. Brauzer buni faqat `localho
 | `src/agent.js` | Avtonom Gemini agent. Tool'lar: `get_overview`, `search_prices`, `get_price_trend`, `search_lots`, `get_lot`, `get_profile`, `save_profile`, `create_order`, `get_orders` |
 | `src/uzex.js` | UZEX va CBU ma'lumotlari: parse, kesh, toifalar, o'zbekcha→ruscha qidiruv |
 | `src/store.js` | Profil, buyurtmalar, DEMO yuborish, xarid arizasi (`data/db.json`) |
-| `public/avatar.js` | WebGL avatar (shader) |
-| `public/app.js`, `index.html`, `style.css` | Dark theme interfeys (vanilla JS) |
+| `client/` | Frontend (React + Vite). Dev rejimida `server.js` Vite'ni middleware sifatida ishlatadi (bitta port) |
+| `client/src/App.jsx` | Asosiy holat, agent oqimi (SSE), navigatsiya |
+| `client/src/components/` | Agent ekrani, forma, buyurtma kartasi, Narxlar / Sotuvda / Buyurtmalar sahifalari, modallar |
+| `client/src/hooks/` | Ovoz yozish (`useRecorder`), narx/lot qidiruvi (`useSearch`) |
+| `client/src/lib/avatar.js` | WebGL avatar (shader) |
+| `client/src/lib/speech.js`, `dock.js` | Agent nutqi va avatar ritmi; avatarning logo ⇄ markaz harakati |
+| `client/src/styles.css` | Dark theme uslublari |
+| `client/avatar-lab.html`, `client/src/lab/` | Avatar Lab (`/avatar-lab.html`) |
 
 ## Cheklovlar
 
