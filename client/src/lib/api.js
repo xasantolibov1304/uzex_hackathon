@@ -32,6 +32,17 @@ export async function streamAgent(body, onEvent) {
   }
 }
 
+/** Qisqa gapni server ovoziga (Gemini TTS) aylantiradi. Xato bo'lsa null. */
+export async function fetchTts(body) {
+  try {
+    const res = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch {
+    return null;
+  }
+}
+
 export function sessionId() {
   let id = null;
   try { id = sessionStorage.getItem("osonAgentSession"); } catch { /* */ }

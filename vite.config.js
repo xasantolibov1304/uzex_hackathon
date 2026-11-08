@@ -16,6 +16,7 @@ export default defineConfig({
       input: {
         main: `${client}/index.html`,
         avatarLab: `${client}/avatar-lab.html`,
+        cubeLab: `${client}/cube-lab.html`,
       },
     },
   },

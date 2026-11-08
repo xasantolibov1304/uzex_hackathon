@@ -1,0 +1,48 @@
+/* Cube Lab — oq mavzu, logo ranglari (yashil / ko'k) */
+:root { --text: #16171a; --muted: #6b6e76; --g1: #12c26b; --g2: #3ee28c; --b1: #5b80ec; --b2: #3e5fd8; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: #f7f9f8; color: var(--text); font: 14px/1.5 "Inter", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+/* Markazdan taraluvchi yumshoq yorug'lik */
+.glow { position: fixed; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(34vmin 30vmin at 50% 50%, rgba(62, 226, 140, .4), transparent 70%),
+    radial-gradient(48vmin 42vmin at 52% 54%, rgba(91, 128, 236, .2), transparent 72%),
+    radial-gradient(90vmin 80vmin at 50% 50%, #fff, transparent 80%); }
+.rays { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; overflow: hidden; }
+/* Nur dastalari: konus gradient, markazdan chetga xiralashadi, sekin aylanadi */
+.rays i { position: absolute; width: 170vmax; height: 170vmax; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(62, 226, 140, .0) 0deg 7deg, rgba(62, 226, 140, .38) 9deg, rgba(62, 226, 140, 0) 12deg 21deg, rgba(91, 128, 236, .34) 24deg, rgba(91, 128, 236, 0) 27deg 36deg);
+  -webkit-mask-image: radial-gradient(circle, #000 4%, rgba(0, 0, 0, .55) 18%, transparent 46%); mask-image: radial-gradient(circle, #000 4%, rgba(0, 0, 0, .55) 18%, transparent 46%);
+  filter: blur(10px); opacity: var(--ray, .8); animation: spin 90s linear infinite; transition: opacity .6s; }
+.rays i + i { animation-duration: 140s; animation-direction: reverse; transform: rotate(14deg); opacity: calc(var(--ray, .8) * .6); }
+@keyframes spin { to { rotate: 360deg; } }
+
+#cube { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+.bar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; }
+.back { color: var(--muted); text-decoration: none; font-weight: 500; }
+.back:hover { color: var(--text); }
+.title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
+.title img { display: block; }
+.hint { color: var(--muted); font-size: 12.5px; }
+
+.panel { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center;
+  padding: 8px 16px 8px 8px; border-radius: 999px; width: max-content; max-width: calc(100vw - 24px);
+  background: rgba(255, 255, 255, .62); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, .85); box-shadow: inset 0 1px 0 #fff, 0 14px 40px rgba(30, 70, 50, .12); }
+.seg { display: flex; gap: 2px; }
+.seg button { border: 0; background: none; padding: 9px 16px; border-radius: 999px; color: var(--muted); font: inherit; font-weight: 550; cursor: pointer; }
+.seg button:hover { color: var(--text); }
+.seg button.active { background: rgba(0, 0, 0, .05); color: var(--text); }
+.sl { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.sl input { width: 110px; accent-color: var(--b2); }
+
+@media (max-width: 760px) {
+  .hint { display: none; }
+  .panel { border-radius: 24px; padding: 10px; bottom: 12px; }
+  .seg { flex-wrap: wrap; justify-content: center; }
+  .seg button { padding: 8px 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .rays i { animation: none; } }

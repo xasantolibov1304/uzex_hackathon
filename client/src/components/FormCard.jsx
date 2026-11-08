@@ -105,6 +105,8 @@ export default function FormCard({ form, isBusy, toast, onProfileSaved, sendTask
                     autoComplete={f.type === "tel" ? "tel" : f.key === "fullName" ? "name" : undefined}
                   />
                 )}
+                {/* Tanlangan qiymatga qarab izoh (masalan, jismoniy shaxs uchun ogohlantirish) */}
+                {f.notes?.[values[i]] ? <div className="fc-note">{f.notes[values[i]]}</div> : null}
                 <div className="fc-err" hidden={!err}>{err || ""}</div>
               </div>
             </div>

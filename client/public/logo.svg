@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- UZEX 2.0: 2×2 kvadrat — tepada yashil (UZ), pastda ko'k (EX) -->
+  <rect x="0" y="0" width="16" height="16" fill="#12c26b"/>
+  <rect x="16" y="0" width="16" height="16" fill="#3ee28c"/>
+  <rect x="0" y="16" width="16" height="16" fill="#5b80ec"/>
+  <rect x="16" y="16" width="16" height="16" fill="#3e5fd8"/>
+</svg>

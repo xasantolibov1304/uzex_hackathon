@@ -37,8 +37,8 @@ function Chart({ pts, labels }) {
       <div className="chart-tip" hidden={!tip} style={tip ? { left: tip.left + "px" } : undefined}>{tip?.text}</div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" onPointerMove={onMove} onPointerLeave={() => setTip(null)}>
         <defs>
-          <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#5b7bff" /><stop offset="1" stopColor="#f062b4" /></linearGradient>
-          <linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7a6bff" stopOpacity=".25" /><stop offset="1" stopColor="#7a6bff" stopOpacity="0" /></linearGradient>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#2f6bff" /><stop offset="1" stopColor="#2f6bff" /></linearGradient>
+          <linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2f6bff" stopOpacity=".18" /><stop offset="1" stopColor="#2f6bff" stopOpacity="0" /></linearGradient>
         </defs>
         <path d={`${line}L${x(pts.length - 1)},${H}L${x(0)},${H}Z`} fill="url(#f)" />
         <path d={line} fill="none" stroke="url(#g)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
@@ -93,14 +93,15 @@ export function LotModal({ id, onClose, onDelegate }) {
   const total = l.total * n;
   const step = (k) => setCount(String(Math.max(1, Math.min(1000, (Number(count) || 1) + k))));
   return (
-    <ModalShell title={l.product} sub={l.seller ? `Sotuvchi: ${l.seller} · lot №${l.id}` : `Lot №${l.id}`} onClose={onClose}>
+    <ModalShell title={l.productUz || l.product} sub={(l.sellerUz || l.seller) ? `Sotuvchi: ${l.sellerUz || l.seller} · lot №${l.id}` : `Lot №${l.id}`} onClose={onClose}>
+      {l.productUz && l.productUz !== l.product ? <div className="hint orig-name">Birjadagi asl nomi: {l.product}</div> : null}
       <div className="big-price">{som(l.total)}</div>
       <div className="hint">1 lot ({qty(l.qty)} {l.unit}) uchun bazis narx · {l.perTonne != null ? som(l.perTonne) + " / tonna" : som(l.perUnit) + " / " + l.unit}</div>
       {l.everyday ? <div className="everyday">Oddiy hisobda: <b>{l.everyday.label} ≈ {som(l.everyday.price)}</b></div> : null}
       <dl className="kv">
         <dt>Depozit</dt><dd>{l.depositPct != null ? `${l.depositPct}% — ${som(l.depositSum)} (kafolat puli)` : "—"}</dd>
         <dt>Yetkazish</dt><dd>{l.pickupYourself ? "EXW — ombordan o'zingiz olib ketasiz" : l.deliveryBasis || "—"}</dd>
-        <dt>Ombor</dt><dd>📍 {l.location || "—"}</dd>
+        <dt>Ombor</dt><dd>📍 {l.locationUz || l.location || "—"}</dd>
         <dt>To'lov</dt><dd>{l.paymentForm || "—"}</dd>
         <dt>UZEX</dt><dd><a href={l.url} target="_blank" rel="noopener">Saytda ko'rish ↗</a></dd>
       </dl>

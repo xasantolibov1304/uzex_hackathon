@@ -1,7 +1,7 @@
 {
   "name": "oson-birja",
   "version": "0.1.0",
-  "description": "Oson Birja — yangi boshlovchilar uchun AI yordamchili kripto savdo MVP",
+  "description": "UZEX 2.0 — tovar birjasida xarid uchun AI agent (hackathon MVP)",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -15,9 +15,12 @@
   },
   "dependencies": {
     "@google/genai": "^3.0.0",
+    "@rive-app/canvas": "^2.23.10",
     "express": "^5.3.0",
+    "msedge-tts": "^2.1.1",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "three": "^0.170.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.2.1",

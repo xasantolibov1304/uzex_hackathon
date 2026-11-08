@@ -6,8 +6,10 @@
 // Saytga ortiqcha yuk tushmasligi uchun hamma narsa keshlanadi.
 // Qo'shimcha: O'zbekiston Markaziy banki (cbu.uz) — USD kursi.
 
+import { uzOrg, uzPlace, uzProduct } from "./names.js";
+
 const BASE = "https://uzex.uz";
-const UA = "Mozilla/5.0 (compatible; OsonBirja/0.2; hackathon MVP)";
+const UA = "Mozilla/5.0 (compatible; UZEX2/0.2; hackathon MVP)";
 
 const cache = new Map();
 async function cached(key, ttl, fn) {
@@ -245,13 +247,16 @@ function parseLot(r) {
   return {
     id: r[0],
     product,
+    productUz: uzProduct(product), // oddiy o'zbekcha nom (asl ruscha nom — product)
     seller,
+    sellerUz: uzOrg(seller),
     qty,
     unit,
     total,
     perUnit,
     perTonne: pt,
     region: r[5],
+    regionUz: uzPlace(r[5]),
     category: categorize(product),
     everyday: everydayPrice(product, "tonna", pt),
     url: `${BASE}/trade/offer/${encodeURIComponent(r[0])}`,
@@ -359,7 +364,10 @@ export function getLot(id) {
     return {
       id: d.id,
       product,
+      productUz: uzProduct(product),
       seller,
+      sellerUz: uzOrg(seller),
+      locationUz: uzPlace(d.location),
       unit,
       qty,
       total,
