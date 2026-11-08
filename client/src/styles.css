@@ -267,30 +267,50 @@ body:not(.av-center) .agent-view.started .stage { background: none; }
 .feed { display: flex; flex-direction: column; gap: 16px; max-width: 720px; margin: 0 auto; }
 .msg-user { align-self: flex-end; max-width: 80%; background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 20px 20px 6px 20px; font-size: 15px; }
 .run { display: flex; flex-direction: column; gap: 12px; }
-/* Agent qadamlari: ixcham vaqt chizig'i (timeline) — har bir qadam alohida, birin-ketin paydo bo'ladi */
-.steps { background: var(--surface); border: 0; box-shadow: var(--shadow); border-radius: 20px; padding: 4px 16px 10px; max-width: 560px; width: 100%; }
-.steps-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0 7px; color: var(--muted); font-size: 12.5px; cursor: pointer; user-select: none; }
+/* Agent qadamlari: kartalar to'plami — yangi qadam tepaga tushadi, eskilari orqaga suriladi */
+.steps { max-width: 560px; width: 100%; }
+.steps-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 2px 6px 10px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; user-select: none; }
 .steps-head b { color: var(--text); font-weight: 600; }
-.steps.collapsed { padding-bottom: 4px; }
-.steps.collapsed .steps-list { display: none; }
-.steps-list { position: relative; }
-.step { position: relative; display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 5px 0; animation: step-in .35s cubic-bezier(.2, .8, .3, 1); }
-/* ikonkalarni bog'lovchi chiziq */
-.step:not(:last-child)::before { content: ""; position: absolute; left: 8px; top: 23px; bottom: -5px; width: 1px; background: var(--border); }
-.step .ic { width: 17px; height: 17px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; background: var(--surface); position: relative; z-index: 1; }
-.step.running .ic { border: 2px solid var(--border); border-top-color: var(--blue); animation: spin .8s linear infinite; }
-.step.done .ic { background: var(--up-bg); color: var(--up); }
-.step.error .ic { background: var(--down-bg); color: var(--down); }
-.step.think .ic { background: var(--surface); }
-.step.think.done .ic::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--faint); }
-.step .body { min-width: 0; }
-.step .lb { font-size: 13px; line-height: 1.45; color: var(--text); }
-.step.think .lb { color: var(--muted); font-style: italic; }
-.step.done.think .lb { color: var(--faint); }
+.st-caret { transition: transform .25s ease; }
+.steps.expanded .st-caret { transform: rotate(180deg); }
+
+/* to'plam: barcha kartalar bitta katakda ustma-ust; orqadagilari pastga surilib, kichrayadi */
+.st-stack { --peek: 9px; display: grid; padding-bottom: calc(var(--peek) * (var(--n) - 1)); transition: padding-bottom .45s cubic-bezier(.2, .8, .2, 1); }
+.st-card { grid-area: 1 / 1; min-width: 0; background: var(--surface); border-radius: 22px; box-shadow: 0 1px 2px rgba(17, 18, 20, .05), 0 8px 24px rgba(17, 18, 20, .06);
+  transform-origin: 50% 100%; transform: translateY(calc(var(--peek) * var(--d))) scale(calc(1 - var(--d) * .045));
+  transition: transform .45s cubic-bezier(.2, .8, .2, 1), opacity .35s ease, box-shadow .3s ease;
+  animation: st-enter .5s cubic-bezier(.2, .8, .2, 1); }
+.st-card[data-d="top"] { box-shadow: 0 1px 2px rgba(17, 18, 20, .06), 0 10px 30px rgba(17, 18, 20, .08); }
+.st-card:not([data-d="top"]) { cursor: pointer; }
+.st-card[data-d="gone"] { opacity: 0; }
+/* orqadagi kartalarning ichi ko'rinmaydi — faqat qirrasi chiqib turadi */
+.st-in { display: flex; align-items: center; gap: 14px; padding: 14px 18px 14px 14px; min-height: 72px; transition: opacity .25s ease; }
+.st-card:not([data-d="top"]) .st-in { opacity: 0; }
+
+.st-ic { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--ink); color: #fff; font-size: 18px; }
+.st-card.done .st-ic { animation: st-pop .35s cubic-bezier(.2, .8, .3, 1.4); }
+.st-card.think .st-ic { background: var(--surface-3); color: var(--muted); }
+.st-card.think.running .st-ic { background: var(--ink); }
+.st-card.error .st-ic { background: var(--down); }
+.st-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .25); border-top-color: #fff; animation: spin .8s linear infinite; }
+.st-body { flex: 1; min-width: 0; }
+.st-lb { font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-dt { margin-top: 2px; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: rise .3s ease; }
+.st-card.think .st-lb { font-weight: 500; }
+.st-card.think.done .st-lb { color: var(--muted); }
+.st-time { flex: none; align-self: flex-end; font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* bajarilayotgan qadam matnida "yugurib o'tuvchi" yorug'lik */
-.step.running .lb { background: linear-gradient(90deg, var(--faint) 0%, var(--text) 45%, var(--faint) 90%) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.6s linear infinite; }
-.step.running .lb .dots { -webkit-text-fill-color: initial; }
-.step .dt { font-size: 12px; color: var(--muted); margin-top: 1px; animation: rise .3s ease; overflow-wrap: anywhere; }
+.st-card.running .st-lb { background: linear-gradient(90deg, var(--faint) 0%, var(--text) 45%, var(--faint) 90%) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.6s linear infinite; }
+.st-card.running .st-lb .dots { -webkit-text-fill-color: initial; }
+
+/* ochilgan holat: hamma qadamlar ro'yxat bo'lib, eng yangisi tepada */
+.steps.expanded .st-stack { display: flex; flex-direction: column; gap: 8px; padding-bottom: 0; }
+.steps.expanded .st-card { transform: none; opacity: 1; cursor: default; animation: none; }
+.steps.expanded .st-in { opacity: 1; }
+.steps.expanded .st-lb, .steps.expanded .st-dt { white-space: normal; }
+
+@keyframes st-enter { from { opacity: 0; transform: translateY(-18px) scale(1.03); } }
+@keyframes st-pop { 0% { transform: scale(.7); } 100% { transform: scale(1); } }
 .dots { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
 .dots i { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); animation: dot 1.1s ease-in-out infinite; }
 .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
@@ -298,17 +318,30 @@ body:not(.av-center) .agent-view.started .stage { background: none; }
 @keyframes dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
 @keyframes step-in { from { opacity: 0; transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) {
-  .step, .step .dt { animation: none; }
-  .step.running .lb { animation: none; color: var(--text); background: none; }
+  .st-card, .st-dt, .st-card.done .st-ic { animation: none; }
+  .st-card, .st-stack, .st-in { transition: none; }
+  .st-card.running .st-lb { animation: none; color: var(--text); background: none; }
   .dots i { animation: none; opacity: .6; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
 
-.lots-peek { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 8px; margin: 0 -2px; }
+.lots-peek { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 6px 2px 10px; margin: -4px -2px -2px; }
 .lots-peek::-webkit-scrollbar { display: none; }
-.peek { flex: 0 0 230px; width: 230px; min-width: 0; text-align: left; background: var(--surface); border: 0; box-shadow: var(--shadow); border-radius: 18px; padding: 12px 14px; animation: rise .3s ease; transition: box-shadow .15s; }
-.peek:hover { box-shadow: var(--shadow-hover); }
+/* lotlar ustidagi kichik sarlavha */
+.lots-head { display: flex; align-items: center; gap: 8px; padding: 0 6px; margin-bottom: -4px; animation: lots-head-in .4s cubic-bezier(.2, .8, .2, 1); }
+.lots-title { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.lots-n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--surface); box-shadow: var(--shadow); color: var(--text); font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; animation: lots-n-pop .4s cubic-bezier(.2, .8, .3, 1.5); }
+/* kartalar chapdan o'ngga birin-ketin "suzib" chiqadi */
+.peek { flex: 0 0 230px; width: 230px; min-width: 0; text-align: left; background: var(--surface); border: 0; box-shadow: var(--shadow); border-radius: 18px; padding: 12px 14px;
+  animation: peek-in .55s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 70ms);
+  transition: box-shadow .2s ease, transform .2s cubic-bezier(.2, .8, .2, 1); }
+.peek:hover { box-shadow: var(--shadow-hover); transform: translateY(-3px); }
+.peek:active { transform: translateY(-1px) scale(.98); }
+@keyframes peek-in { from { opacity: 0; transform: translateY(14px) scale(.96); filter: blur(4px); } }
+@keyframes lots-head-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes lots-n-pop { 0% { transform: scale(.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .peek, .lots-head, .lots-n { animation: none; } .peek:hover, .peek:active { transform: none; } }
 .peek .t { font-size: 13px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .peek .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .peek .p { font-size: 15px; font-weight: 700; margin-top: 6px; letter-spacing: -.01em; }
