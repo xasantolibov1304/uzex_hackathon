@@ -29,10 +29,25 @@ export function rateLimit({ max, windowMs, message = "Juda ko'p so'rov. Birozdan
   };
 }
 
-/** Faqat shu saytning o'z sahifalaridan kelgan so'rovlar (boshqa saytlar brauzer orqali foydalana olmasin). */
+// Frontend boshqa domenda bo'lsa (masalan Netlify), uning manzili: CORS_ORIGINS=https://oson-birja.netlify.app,https://...
+const ALLOWED = String(process.env.CORS_ORIGINS || "").split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);
+export const allowedOrigin = (origin) => Boolean(origin) && ALLOWED.includes(String(origin).replace(/\/+$/, ""));
+
+/** CORS: faqat CORS_ORIGINS ro'yxatidagi frontend domenlariga ruxsat (preflight OPTIONS ham shu yerda). */
+export function cors(req, res, next) {
+  const origin = req.get("origin");
+  if (allowedOrigin(origin)) {
+    res.set({ "Access-Control-Allow-Origin": origin, Vary: "Origin", "Access-Control-Allow-Headers": "content-type", "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS", "Access-Control-Max-Age": "600" });
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+  }
+  next();
+}
+
+/** Faqat shu saytning o'z sahifalaridan (yoki CORS_ORIGINS'dagi frontenddan) kelgan so'rovlar. */
 export function sameOrigin(req, res, next) {
   const origin = req.get("origin");
   if (!origin) return next(); // brauzer bir xil saytda Origin yubormasligi mumkin
+  if (allowedOrigin(origin)) return next();
   try {
     if (new URL(origin).host === req.get("host")) return next();
   } catch { /* noto'g'ri Origin */ }
