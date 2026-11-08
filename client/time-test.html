@@ -31,13 +31,15 @@
     .btn.ghost { background: none; border: 1px solid var(--line); color: var(--text); }
     .btn.ghost:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 
-    /* kategoriya tanlash (segment) */
-    .seg-ctl { display: inline-flex; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); flex-wrap: wrap; }
-    .seg-ctl button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px; padding: 8px 14px;
-      border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .seg-ctl button:hover { color: var(--text); }
-    .seg-ctl button[aria-pressed="true"] { background: #1c2133; color: var(--text); }
-    .seg-ctl .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    /* kategoriya tanlash (dropdown) */
+    .cat-select { appearance: none; -webkit-appearance: none; font: inherit; font-size: 14px; color: var(--text);
+      background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238a90a6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+      border: 1px solid var(--line); border-radius: 12px; padding: 11px 40px 11px 14px; cursor: pointer; outline: none; max-width: 100%; }
+    .cat-select:hover { border-color: #2b3142; }
+    .cat-select:focus { border-color: var(--accent); }
+    .cat-select option { background: var(--panel); color: var(--text); }
+    #catPick { width: min(420px, 100%); }
+    #catFilter { min-width: 220px; }
     .login-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(460px, 100%); }
     .login-wrap .lbl { color: var(--muted); font-size: 13px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
@@ -127,7 +129,7 @@
     <!-- 1. Login -->
     <section id="loginView" class="login-wrap" hidden>
       <span class="lbl">1. Test kategoriyasini tanlang</span>
-      <div class="seg-ctl" id="catPick" role="group" aria-label="Test kategoriyasi"></div>
+      <select class="cat-select" id="catPick" aria-label="Test kategoriyasi"></select>
       <span class="lbl">2. Ismingizni kiriting</span>
       <form class="login" id="loginForm" autocomplete="off">
         <input id="nameInput" maxlength="40" placeholder="Ism yoki ID" required />
@@ -161,7 +163,7 @@
     <!-- 3. Kategoriya filtri (statistika va jadval uchun) -->
     <div class="filters">
       <span class="lbl">Kategoriya bo'yicha ko'rsatish</span>
-      <div class="seg-ctl" id="catFilter" role="group" aria-label="Kategoriya filtri"></div>
+      <select class="cat-select" id="catFilter" aria-label="Kategoriya filtri"></select>
     </div>
 
     <!-- Statistika (grafiklar) -->
@@ -196,6 +198,10 @@
                task: "Ikkala saytda mahsulotni NOMI bo'yicha qidirib toping (masalan, \"sement\"), topgach tabni yoping." },
       price: { label: "Narx bo'yicha filtr", short: "Narx bo'yicha", icon: "💰",
                task: "Ikkala saytda mahsulotni NARXI bo'yicha filtrlab toping (masalan, eng arzonini), topgach tabni yoping." },
+      order: { label: "Buyurtma berish", short: "Buyurtma", icon: "🛒",
+               task: "Ikkala saytda buyurtmani boshidan oxirigacha rasmiylashtiring (masalan, \"Toshkentga 20 tonna sement\"), yuborgach tabni yoping." },
+      region: { label: "Hudud bo'yicha qidiruv", short: "Hudud bo'yicha", icon: "📍",
+               task: "Ikkala saytda mahsulotni HUDUD bo'yicha toping (masalan, Samarqand viloyatidagi sement), topgach tabni yoping." },
     };
     const CAT_IDS = Object.keys(CATS);
     const K_FILTER = "timeTest.filter";
@@ -328,19 +334,17 @@
 
     function renderCatControls() {
       $("catPick").innerHTML = CAT_IDS.map((c) =>
-        `<button type="button" data-cat="${c}" aria-pressed="${c === pickedCat}">${CATS[c].icon} ${CATS[c].label}</button>`).join("");
+        `<option value="${c}"${c === pickedCat ? " selected" : ""}>${CATS[c].icon} ${CATS[c].label}</option>`).join("");
       const count = (c) => (c === "all" ? results.length : results.filter((r) => r.category === c).length);
       $("catFilter").innerHTML = ["all", ...CAT_IDS].map((c) =>
-        `<button type="button" data-filter="${c}" aria-pressed="${c === filterCat}">${c === "all" ? "Hammasi" : CATS[c].short}` +
-        ` <span class="n">${count(c)}</span></button>`).join("");
+        `<option value="${c}"${c === filterCat ? " selected" : ""}>${c === "all" ? "Hammasi" : `${CATS[c].icon} ${CATS[c].short}`}` +
+        ` (${count(c)})</option>`).join("");
     }
-    $("catPick").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-cat]"); if (!b) return;
-      pickedCat = b.dataset.cat; renderCatControls(); $("nameInput").focus();
+    $("catPick").addEventListener("change", (e) => {
+      pickedCat = e.target.value; renderCatControls(); $("nameInput").focus();
     });
-    $("catFilter").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-filter]"); if (!b) return;
-      filterCat = b.dataset.filter; try { localStorage.setItem(K_FILTER, filterCat); } catch {}
+    $("catFilter").addEventListener("change", (e) => {
+      filterCat = e.target.value; try { localStorage.setItem(K_FILTER, filterCat); } catch {}
       renderResults();
     });
 
