@@ -132,7 +132,7 @@ body.av-center .stage-slot[data-state="speaking"], body.av-center .stage-slot[da
 .logo-slot { width: 30px; height: 30px; flex: none; display: inline-block; }
 #avatar.no-webgl { background: url(/logo.svg) center / 66% no-repeat; }
 /* Markazda 3D kub ostida yumshoq soya */
-body.av-center .avatar-fly { filter: drop-shadow(0 18px 22px rgba(24, 64, 36, .18)); }
+body.av-center .avatar-fly { filter: none; }
 .intro { text-align: center; margin-top: 0; transition: opacity .3s; width: 100%; }
 .intro-text { color: var(--muted); font-size: 15.5px; margin: 0 0 40px; }
 
@@ -256,7 +256,7 @@ body.av-center .avatar-fly { filter: drop-shadow(0 18px 22px rgba(24, 64, 36, .1
 .chip.active { color: #fff; background: var(--ink); }
 
 /* Suhbat boshlangach avatar tepaga ko'tariladi */
-.agent-view.started .stage { min-height: 0; position: sticky; top: 66px; z-index: 5; padding: 0 0 6px; background: none; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); -webkit-mask-image: linear-gradient(#000 75%, transparent); mask-image: linear-gradient(#000 75%, transparent); }
+.agent-view.started .stage { min-height: 0; position: sticky; top: 66px; z-index: 5; padding: 0 0 6px; background: none; }
 /* Suhbat davomida: avatar logoda bo'lsa joy yig'iladi, faol bo'lsa ochiladi */
 .agent-view.started .stage-slot { width: 0; height: 0; }
 body.av-center .agent-view.started .stage-slot { width: 170px; height: 170px; }

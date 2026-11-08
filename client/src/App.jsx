@@ -294,7 +294,8 @@ export default function App() {
       for (;;) {
         const ev = await nextAction();
         if (ev.type === "__end") break;
-        await play(ev);
+        // Bitta hodisadagi xato butun oqimni to'xtatmasin (aks holda javob chiqmaydi va tugma bloklanib qoladi)
+        try { await play(ev); } catch (err) { console.error("[agent event]", ev.type, err); }
       }
       if (think) { think.status = "done"; think = null; commit(); }
     })();
