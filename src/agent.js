@@ -366,7 +366,6 @@ const slimLot = (x) => ({
 });
 
 async function runTool(name, a, emit, ctx = {}) {
-async function runTool(name, a, emit, ctx = {}) {
   switch (name) {
     case "get_overview": {
       const [quotes, today, usd] = await Promise.all([getKeyQuotes(), getTodayOffers().catch(() => null), getUsdUzs().catch(() => null)]);
@@ -564,7 +563,7 @@ export async function runTask({ sessionId, text, lang = "uz", screen = "", devic
           emit({ type: "step", id, tool: fc.name, label: stepLabel(fc.name, fc.args), status: "running" });
           let result;
           try {
-            result = await runTool(fc.name, fc.args ?? {}, emit, { lang: userLang }, { deviceId });
+            result = await runTool(fc.name, fc.args ?? {}, emit, { lang: userLang, deviceId });
             emit({ type: "step", id, status: "done", label: stepDoneLabel(fc.name, fc.args), detail: stepDetail(fc.name, result) });
           } catch (e) {
             result = { error: e.message };
