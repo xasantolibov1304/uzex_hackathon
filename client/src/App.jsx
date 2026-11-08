@@ -19,7 +19,7 @@ import { ApplicationModal, LotModal, PriceModal } from "./components/Modals.jsx"
 
 const SESSION = sessionId();
 const TABS = [["agent", "Agent"], ["prices", "Narxlar"], ["lots", "Sotuvda"], ["alerts", "Kuzatuv"], ["orders", "Buyurtmalar"]];
-const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), forms: [...m.forms], alerts: [...m.alerts], alertOffers: [...m.alertOffers], charts: [...m.charts] });
+const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), charts: [...(m.charts || [])], forms: [...m.forms], alerts: [...m.alerts], alertOffers: [...m.alertOffers] });
 
 export default function App() {
   const [cfg, setCfg, cfgRef] = useLiveState({ aiEnabled: false, categories: [], regions: [] });
@@ -122,7 +122,7 @@ export default function App() {
     setTaskText("");
     const tt = () => tr(langRef.current);
     const n = ++seq.current;
-    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, collapsed: false, steps: [], lots: null, forms: [], alerts: [], alertOffers: [], charts: [], orderId: null, replyHtml: "" };
+    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, expanded: false, steps: [], lots: null, charts: [], forms: [], alerts: [], alertOffers: [], orderId: null, replyHtml: "" };
     runsRef.current.set(run.id, run);
     setFeed((f) => [...f, ...(hidden ? [] : [{ kind: "user", id: `u${n}`, text }]), snapshot(run)]);
     const commit = () => { const snap = snapshot(run); setFeed((f) => f.map((it) => (it.id === run.id ? snap : it))); };
@@ -154,6 +154,7 @@ export default function App() {
       const left = think.t0 + THINK_MIN - performance.now();
       if (left > 0) await sleep(left);
       think.status = "done";
+      think.t1 = performance.now();
       think.label = label || (think.id === "t1" ? tt().think.firstDone : tt().think.nextDone);
       commit();
       think = null;
@@ -192,6 +193,7 @@ export default function App() {
           const left = s.t0 + STEP_MIN + Math.random() * 450 - performance.now();
           if (left > 0) await sleep(left);
           s.status = res?.status || "done";
+          s.t1 = performance.now();
           if (res?.label) s.label = res.label;
           s.detail = res?.detail || "";
           doneCount++;
@@ -279,12 +281,12 @@ export default function App() {
       }
     };
 
-    // Avvalgi vazifalarning qadamlari yig'iladi — tarix ixcham qoladi, joriy vazifa esa to'liq ko'rinadi
+    // Avvalgi vazifalarning ochilgan qadamlari yana to'plamga yig'iladi — tarix ixcham qoladi
     setFeed((f) => f.map((it) => {
       if (it.kind !== "run" || it.id === run.id) return it;
       const r = runsRef.current.get(it.id);
-      if (!r || r.collapsed) return it;
-      r.collapsed = true;
+      if (!r || !r.expanded) return it;
+      r.expanded = false;
       return snapshot(r);
     }));
 
@@ -314,7 +316,7 @@ export default function App() {
   function toggleSteps(id) {
     const run = runsRef.current.get(id);
     if (!run) return;
-    run.collapsed = !run.collapsed;
+    run.expanded = !run.expanded;
     const snap = snapshot(run);
     setFeed((f) => f.map((it) => (it.id === id ? snap : it)));
   }
