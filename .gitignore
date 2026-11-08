@@ -7,3 +7,6 @@ voice-samples/
 ui-references/
 data/alerts.json
 data/vapid.json
+
+# Local Netlify folder
+.netlify

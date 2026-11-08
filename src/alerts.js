@@ -51,10 +51,12 @@ function save() {
 }
 
 // ---------- push kalitlari (VAPID) ----------
+// Hosting panelida nusxalashda tez-tez uchraydigan xatolar: "KEY=" qismi, qo'shtirnoq, bo'sh joy/qator oxiri
+const cleanKey = (v, name) => String(v || "").trim().replace(new RegExp(`^${name}\\s*=\\s*`), "").replace(/^["']|["']$/g, "").replace(/\s+/g, "");
 function vapidKeys() {
-  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-    return { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
-  }
+  const pub = cleanKey(process.env.VAPID_PUBLIC_KEY, "VAPID_PUBLIC_KEY");
+  const priv = cleanKey(process.env.VAPID_PRIVATE_KEY, "VAPID_PRIVATE_KEY");
+  if (pub && priv) return { publicKey: pub, privateKey: priv };
   try {
     const k = JSON.parse(fs.readFileSync(VAPID_FILE, "utf8"));
     if (k.publicKey && k.privateKey) return k;
@@ -67,7 +69,15 @@ function vapidKeys() {
 }
 const VAPID = vapidKeys();
 // Push xizmatlari (Apple, Google) aloqa manzilini talab qiladi — production'da VAPID_SUBJECT'ni haqiqiy manzilga qo'ying
-webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:noreply@oson-birja.app", VAPID.publicKey, VAPID.privateKey);
+let pushReady = true;
+try {
+  const subject = String(process.env.VAPID_SUBJECT || "").trim().replace(/^VAPID_SUBJECT\s*=\s*/, "") || "mailto:noreply@oson-birja.app";
+  webpush.setVapidDetails(subject, VAPID.publicKey, VAPID.privateKey);
+} catch (e) {
+  // Noto'g'ri kalit butun serverni yiqitmasin: faqat push o'chadi, qolgan ilova ishlayveradi
+  pushReady = false;
+  console.error(`⚠  Push o'chiq: VAPID sozlamasi noto'g'ri (${e.message}). Ochiq kalit ~87 belgi, maxfiy ~43 belgi bo'lishi kerak.`);
+}
 export const pushPublicKey = () => VAPID.publicKey;
 
 // Server faqat ma'lum push xizmatlariga so'rov yuboradi (endpoint foydalanuvchidan keladi — SSRF'dan himoya)
@@ -203,6 +213,7 @@ const fmt = (n) => Math.round(n).toLocaleString("en-US").replace(/,/g, " ");
 async function push(deviceId, payload) {
   const dev = db.devices[deviceId];
   if (!dev?.sub) return { sent: false, reason: "no_subscription" };
+  if (!pushReady) return { sent: false, reason: "error" };
   try {
     await webpush.sendNotification(dev.sub, JSON.stringify(payload), { TTL: 12 * 3600, urgency: "high" });
     return { sent: true };
