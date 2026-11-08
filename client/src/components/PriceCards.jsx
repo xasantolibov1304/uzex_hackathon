@@ -45,47 +45,64 @@ function dayName(iso, lang) {
   }
 }
 
-/* ---------- 1. Bozor holati: yarim doira o'lchagich ---------- */
+/* ---------- 1. Bozor holati: katta raqam + taqsimot chizig'i + yo'nalishlar ---------- */
+const CAT_IC = { build: "cement", fuel: "diesel", food: "flour" };
+const SEG = 10; // yo'nalish qatoridagi segmentlar soni
 function MoodCard({ quotes, d }) {
   const n = quotes.length;
   const up = quotes.filter((q) => q.changePct > 0.05).length;
   const down = quotes.filter((q) => q.changePct < -0.05).length;
-  const f = n ? up / n : 0;
+  const flat = n - up - down;
   const state = up > down + 2 ? "rising" : down > up + 2 ? "falling" : "stable";
-  const a = Math.PI * (1 - Math.max(0.02, f));
-  const x = 100 + 80 * Math.cos(a), y = 96 - 80 * Math.sin(a);
   const cats = Object.keys(d.cats).map((id) => {
     const xs = quotes.filter((q) => q.category?.id === id);
     const avg = xs.length ? xs.reduce((s, q) => s + (Number(q.changePct) || 0), 0) / xs.length : 0;
     return { id, avg, has: xs.length > 0 };
   }).filter((c) => c.has);
+  const max = Math.max(0.5, ...cats.map((c) => Math.abs(c.avg)));
+  const split = [["up", up], ["flat", flat], ["down", down]];
+  const ticks = [...quotes].sort((a, b) => (Number(b.changePct) || 0) - (Number(a.changePct) || 0));
   return (
     <div className="dcard mood">
-      <div className="dc-head"><span>{d.mood}</span></div>
-      <div className={`gauge ${state}`}>
-        <svg viewBox="0 0 200 104" aria-hidden="true">
-          <path d="M20 96A80 80 0 0 1 180 96" className="g-track" />
-          <path d={`M20 96A80 80 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}`} className="g-fill" />
-          <circle cx={x} cy={y} r="5" className="g-dot" />
-        </svg>
-        <div className="g-label">
-          <span className="g-ic">
-            {/* Trend ikonkasi: o'sish ↗, tushish ↘, barqaror → */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {state === "rising" ? <><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></>
-                : state === "falling" ? <><path d="M3 7l6 6 4-4 8 8" /><path d="M15 17h6v-6" /></>
-                : <><path d="M3 12h18" /><path d="M15 6l6 6-6 6" /></>}
-            </svg>
-          </span>
-          <b>{d[state]}</b>
-          <span>{d.moodSub(n, up)}</span>
-        </div>
+      <div className="dc-head">
+        <span>{d.mood}</span>
+        <span className={`m-pill ${state}`}>
+          {/* Trend ikonkasi: o'sish ↗, tushish ↘, barqaror → */}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {state === "rising" ? <><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></>
+              : state === "falling" ? <><path d="M3 7l6 6 4-4 8 8" /><path d="M15 17h6v-6" /></>
+              : <><path d="M4 12h16" /><path d="M14 6l6 6-6 6" /></>}
+          </svg>
+          {d.short[state]}
+        </span>
       </div>
-      <ul className="checks">
-        {cats.map((c) => (
-          <li key={c.id}><span>{d.cats[c.id]}</span><span className={`chg ${dir(c.avg)}`}>{dir(c.avg) === "up" ? "▲" : dir(c.avg) === "down" ? "▼" : "•"} {pctTxt(c.avg)}</span></li>
-        ))}
+
+      <div className="m-hero" title={d.moodSub(n, up)}>
+        <div className="m-big">{up}<span>/{n}</span></div>
+        <div className="m-sub">{d.moodOf(n)}</div>
+      </div>
+
+      {/* Har bir tovar — bitta tik: chapda qimmatlaganlar, o'rtada o'zgarmaganlar, o'ngda arzonlaganlar */}
+      <div className="m-ticks" role="img" aria-label={split.map(([k, v]) => `${d.split[k]}: ${v}`).join(", ")}>
+        {ticks.map((q, i) => <i key={i} className={dir(q.changePct)} data-tip={`${clean(q.name)} · ${pctTxt(q.changePct)}`} />)}
+      </div>
+      <ul className="m-legend">
+        {split.map(([k, v]) => <li key={k} className={k}><i />{d.split[k]} <b>{v}</b></li>)}
       </ul>
+
+      <div className="m-cats">
+        <div className="m-cap">{d.catHead}</div>
+        {cats.map((c) => (
+          <div className="m-cat" key={c.id}>
+            <i className="pt-ic">{ICONS[CAT_IC[c.id]]}</i>
+            <span className="m-name">{d.cats[c.id]}</span>
+            <span className={`m-seg ${dir(c.avg)}`} aria-hidden="true">
+              {Array.from({ length: SEG }, (_, k) => <i key={k} className={k < Math.max(1, Math.round(Math.abs(c.avg) / max * SEG)) ? "on" : ""} />)}
+            </span>
+            <span className={`chg ${dir(c.avg)}`}>{pctTxt(c.avg)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -93,26 +110,45 @@ function MoodCard({ quotes, d }) {
 /* ---------- 2. Asosiy narxlar: jadval + dollar kursi ---------- */
 function MainCard({ quotes, usd, t, d, onPick }) {
   const rows = GOODS.map((g) => ({ ...g, q: pick(quotes, g.res) })).filter((r) => r.q);
+  const short = (n) => som(n, { short: true }).replace(/\s*so.m$/, "");
+  // Diverging shkala: markazda 0, chapga arzonlash, o'ngga qimmatlash; ildiz shkala — kichik o'zgarishlar ham ko'rinsin
+  const max = Math.max(1, ...rows.map((r) => Math.abs(Number(r.q.changePct) || 0)));
+  const w = (p) => Math.max(p ? 6 : 0, Math.sqrt(Math.abs(p) / max) * 100);
   return (
     <div className="dcard main">
-      <div className="dc-head"><span>{d.main}</span></div>
-      <div className="ptable" role="table">
-        <div className="pt-row pt-h" role="row">{d.col.map((c) => <span key={c} role="columnheader">{c}</span>)}</div>
+      <div className="dc-head">
+        <span>{d.main}</span>
+        <span className="mp-chip">{d.weekly}</span>
+      </div>
+      <div className="mp-list">
         {rows.map(({ key, q }) => {
           const title = key === "petrol" ? d.petrol : t.goods[key];
+          const p = Number(q.changePct) || 0;
+          const prev = Number(q.price) - (Number(q.change) || 0);
+          const unit = t.per[q.unit] || q.unit;
           return (
-            <button className="pt-row" role="row" key={key} onClick={() => onPick(t.goodsTask(title))} title={clean(q.name)}>
-              <span className="pt-name"><i className="pt-ic">{ICONS[key]}</i>{title}</span>
-              <span className="pt-price">{som(q.price, { short: true }).replace(/\s*so.m$/, "")}<small>/{t.per[q.unit] || q.unit}</small></span>
-              <span className={`chg ${dir(q.changePct)}`}>{pctTxt(q.changePct)}</span>
+            <button className="mp-row" key={key} onClick={() => onPick(t.goodsTask(title))} title={clean(q.name)}>
+              <i className="pt-ic">{ICONS[key]}</i>
+              <span className="mp-name">
+                <b>{title}</b>
+                <small>{d.prev}: {short(prev)}/{unit}</small>
+              </span>
+              <span className={`mp-div ${dir(p)}`} aria-hidden="true">
+                <i style={{ width: w(p) / 2 + "%", [p < 0 ? "right" : "left"]: "50%" }} />
+              </span>
+              <span className="mp-val">
+                <b>{short(q.price)}<small>/{unit}</small></b>
+                <span className={`chg ${dir(p)}`}>{pctTxt(p)}</span>
+              </span>
             </button>
           );
         })}
       </div>
       {usd?.rate ? (
         <div className="usd">
-          <div><b>{d.usd}</b><span>{d.usdSub(usd.date)}</span></div>
-          <div className="usd-v">1 $ = {Math.round(usd.rate).toLocaleString("en-US").replace(/,/g, " ")} so'm</div>
+          <i className="usd-ic" aria-hidden="true">$</i>
+          <div className="usd-t"><b>{d.usd}</b><span>{d.usdSub(usd.date)}</span></div>
+          <div className="usd-v">{Math.round(usd.rate).toLocaleString("en-US").replace(/,/g, " ")}<small> so'm</small></div>
         </div>
       ) : null}
     </div>
@@ -121,21 +157,33 @@ function MainCard({ quotes, usd, t, d, onPick }) {
 
 /* ---------- 3. Haftaning o'zgarishi: ikkita kichik karta (eng ko'p qimmatlagan / arzonlagan) ---------- */
 function MoverCard({ list, kind, label }) {
-  // list — shu yo'nalishdagi tovarlar, eng kattasi birinchi; ustunlar — top 8 ta, birinchisi ajratilgan
+  // list — shu yo'nalishdagi tovarlar, eng kattasi birinchi. O'ngda top-7 ustun: yetakchi to'liq rangda,
+  // qolganlari shtrixlangan; sichqoncha bilan har bir ustun nomi va foizi ko'rinadi.
   const top = list[0];
   if (!top) return null;
-  const xs = list.slice(0, 8);
-  const max = Math.max(0.1, ...xs.map((q) => Math.abs(q.changePct)));
+  const xs = list.slice(0, 7);
+  const max = Math.abs(top.changePct) || 1;
   return (
     <div className={"dcard mover mv-" + kind}>
-      <div className="dc-head"><span>{label}</span></div>
+      <div className="dc-head">
+        <span>{label}</span>
+        <span className="mv-ic" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            {kind === "up" ? <path d="M7 17 17 7M8 7h9v9" /> : <path d="M7 7l10 10M17 8v9H8" />}
+          </svg>
+        </span>
+      </div>
       <div className="mv-row">
-        <div className="mv-text">
+        <div className="mv-hero">
           <div className="mv-big">{pctTxt(top.changePct)}</div>
           <div className="mv-sub" title={clean(top.name)}>{clean(top.name)}</div>
         </div>
-        <div className="mv-bars" aria-hidden="true">
-          {xs.map((q, i) => <i key={i} className={i === 0 ? "top" : ""} style={{ height: Math.max(10, Math.sqrt(Math.abs(q.changePct) / max) * 100) + "%" }} />)}
+        <div className="mv-chart" role="img" aria-label={xs.map((q) => `${clean(q.name)} ${pctTxt(q.changePct)}`).join(", ")}>
+          {xs.map((q, i) => (
+            <span key={i} className={"mv-col" + (i === 0 ? " lead" : "")} data-tip={`${clean(q.name)} · ${pctTxt(q.changePct)}`}>
+              <i style={{ height: Math.max(8, Math.abs(q.changePct) / max * 100) + "%" }} />
+            </span>
+          ))}
         </div>
       </div>
     </div>
