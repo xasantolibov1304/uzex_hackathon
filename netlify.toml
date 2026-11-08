@@ -1,0 +1,16 @@
+# Netlify — faqat frontend (Vite → dist/). API backend Render'da (render.yaml).
+# VITE_API_URL build vaqtida frontendga yoziladi: brauzer API'ga to'g'ridan-to'g'ri Render orqali murojaat qiladi
+# (Netlify proksisi uzun agent oqimini ~26 s da uzib qo'yishi mumkin).
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  VITE_API_URL = "https://oson-birja-api.onrender.com"
+
+# Service worker har doim yangisi olinsin
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

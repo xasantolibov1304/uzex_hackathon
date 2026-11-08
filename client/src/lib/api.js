@@ -1,6 +1,10 @@
+// API manzili: lokalda bo'sh (o'sha port), deployda — backend (Render) manzili, masalan https://oson-birja-api.onrender.com
+const BASE = String(import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+export const apiUrl = (path) => BASE + path;
+
 export async function api(path, opts) {
   const init = opts ? { method: opts.method || "POST", headers: { "content-type": "application/json" }, body: opts.body ? JSON.stringify(opts.body) : undefined } : {};
-  const res = await fetch(path, init);
+  const res = await fetch(apiUrl(path), init);
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("json") ? await res.json().catch(() => ({})) : await res.text();
   if (!res.ok) throw new Error(data?.error || "Xato yuz berdi");
@@ -9,7 +13,7 @@ export async function api(path, opts) {
 
 /** Agent vazifasini SSE oqimi orqali bajaradi; har bir hodisa onEvent ga uzatiladi. */
 export async function streamAgent(body, onEvent) {
-  const res = await fetch("/api/agent/stream", {
+  const res = await fetch(apiUrl("/api/agent/stream"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -35,7 +39,7 @@ export async function streamAgent(body, onEvent) {
 /** Qisqa gapni server ovoziga (Gemini TTS) aylantiradi. Xato bo'lsa null. */
 export async function fetchTts(body) {
   try {
-    const res = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(apiUrl("/api/tts"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) return null;
     return await res.blob();
   } catch {

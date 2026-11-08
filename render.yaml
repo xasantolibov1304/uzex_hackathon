@@ -1,0 +1,37 @@
+# Render Blueprint — backend (Express API, agent, push). Frontend Netlify'da (netlify.toml).
+# Render: New → Blueprint → shu repo. "sync: false" qiymatlarini Render o'zi so'raydi (kalitlar git'ga tushmaydi).
+services:
+  - type: web
+    name: oson-birja-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: node server.js --production
+    healthCheckPath: /api/config
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: ELEVENLABS_ENABLED
+        value: "1"
+      # Maxfiy qiymatlar — Render panelida kiritiladi
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      # Netlify sayt manzili (CORS), masalan https://oson-birja.netlify.app
+      - key: CORS_ORIGINS
+        sync: false
+      # Push kalitlari doimiy bo'lishi kerak (bepul tarifda fayllar har qayta ishga tushishda o'chadi)
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false

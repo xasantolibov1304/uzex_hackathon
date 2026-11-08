@@ -5,7 +5,7 @@ import { CATEGORIES, REGIONS, getDaily, getKeyQuotes, getLot, getTodayOffers, ge
 import { OrderError, applicationText, cancelOrder, confirmOrder, getProfile, listOrders, saveProfile, tradingStatus } from "./src/store.js";
 import { agentConfigured, describeAgentError, resetSession, runTask, transcribe } from "./src/agent.js";
 import { speak } from "./src/voice.js";
-import { rateLimit, sameOrigin } from "./src/ratelimit.js";
+import { cors, rateLimit, sameOrigin } from "./src/ratelimit.js";
 import { AlertError, GRADES, checkAlerts, createAlert, deleteAlert, listAlerts, marketRef, pushPublicKey, removeSubscription, saveSubscription, sendTest, startAlertScheduler } from "./src/alerts.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -14,6 +14,7 @@ const app = express();
 // Hosting (Railway, Render, Nginx…) proksi orqali ishlaganda haqiqiy IP X-Forwarded-For'da keladi.
 // TRUST_PROXY = proksilar soni (production'da standart 1, lokalda 0).
 app.set("trust proxy", Number(process.env.TRUST_PROXY ?? (isProd ? 1 : 0)));
+app.use("/api", cors); // frontend boshqa domenda (Netlify) bo'lganda — CORS_ORIGINS
 app.use("/api/transcribe", express.json({ limit: "12mb" }));
 app.use(express.json({ limit: "20kb" }));
 
