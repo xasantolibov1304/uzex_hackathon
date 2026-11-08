@@ -457,3 +457,87 @@ pre.app { white-space: pre-wrap; font: 13px/1.55 ui-monospace, SFMono-Regular, M
 /* Jismoniy shaxs: broker orqali xarid belgisi va formadagi izoh */
 .status.broker { background: var(--blue-bg); color: #1d4fd8; }
 .fc-note { margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: #6b4a00; background: var(--warn-bg); border-radius: 12px; padding: 9px 12px; }
+
+/* ---------- Solishtirish grafigi (agent: show_comparison) ---------- */
+.cmp-card { background: var(--surface); border-radius: 20px; box-shadow: var(--shadow); padding: 16px 18px 14px; margin: 4px 0 12px; animation: rise .35s ease; }
+.cmp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
+.cmp-title { display: flex; flex-direction: column; min-width: 0; }
+.cmp-title b { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.cmp-title span { font-size: 12px; color: var(--muted); }
+.cmp-views { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 999px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.cmp-views::-webkit-scrollbar { display: none; }
+.cmp-views button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 550; padding: 5px 11px; border-radius: 999px; white-space: nowrap; cursor: pointer; transition: background .15s, color .15s; }
+.cmp-views button:hover { color: var(--text); }
+.cmp-views button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(17, 18, 20, .1); }
+.cmp-body { animation: rise .3s ease; }
+.cmp-bars { display: flex; flex-direction: column; gap: 4px; }
+.cmp-row { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 7px 8px; margin: 0 -8px; border: 0; background: none; border-radius: 12px; text-align: left; font: inherit; color: inherit; }
+button.cmp-row { cursor: pointer; transition: background .15s; }
+button.cmp-row:hover { background: var(--surface-2); }
+.cmp-lbl { min-width: 0; display: flex; flex-direction: column; }
+.cmp-lbl b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-lbl span { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-track { position: relative; height: 14px; background: var(--surface-3); border-radius: 999px; }
+.cmp-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--blue); transition: width .7s cubic-bezier(.2, .8, .2, 1), left .7s cubic-bezier(.2, .8, .2, 1); }
+.cmp-fill.good { background: var(--up); } .cmp-fill.bad { background: var(--down); } .cmp-fill.flat { background: var(--faint); }
+.cmp-track.diverge { background: var(--surface-2); }
+.cmp-zero { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px solid var(--border-2); z-index: 1; }
+.cmp-row.lo .cmp-fill { background: var(--up); }
+.cmp-row.hi .cmp-fill { background: var(--down); }
+.cmp-ref { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px dashed var(--ink); opacity: .55; }
+.cmp-val { display: flex; flex-direction: column; align-items: flex-end; min-width: 92px; }
+.cmp-val b { font-size: 13.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cmp-val span { font-size: 11px; white-space: nowrap; }
+.cmp-tag { padding: 1px 7px; border-radius: 999px; font-weight: 600; margin-top: 2px; }
+.cmp-tag.lo { color: var(--up); background: var(--up-bg); }
+.cmp-tag.hi { color: var(--down); background: var(--down-bg); }
+.cmp-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+.cmp-foot b { color: var(--text); font-weight: 650; }
+.cmp-legend { display: inline-flex; align-items: center; gap: 6px; }
+.cmp-legend > i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.cmp-ref-key { width: 14px !important; height: 0 !important; border-top: 2px dashed var(--ink); opacity: .55; border-radius: 0 !important; }
+.cmp-diff { margin-left: auto; }
+.cmp-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.cmp-svg .grid { stroke: var(--border); stroke-width: 1; }
+.cmp-svg .ax { fill: var(--faint); font-size: 11px; }
+.cmp-svg .xl { fill: var(--text); font-size: 12px; font-weight: 600; }
+.cmp-svg .vl { fill: var(--text); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cmp-svg .refl { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: .5; }
+.cmp-svg .col { transform-box: fill-box; transform-origin: 50% 100%; animation: cmp-grow .7s cubic-bezier(.2, .8, .2, 1) both; }
+.cmp-svg .ar { animation: rise .6s ease both; }
+@keyframes cmp-grow { from { transform: scaleY(0); } }
+.cmp-svg .ln { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: cmp-draw .9s ease forwards; }
+.cmp-svg .dot { fill: currentColor; stroke: var(--surface); stroke-width: 2; }
+@keyframes cmp-draw { to { stroke-dashoffset: 0; } }
+.cmp-donut { display: grid; grid-template-columns: 200px minmax(0, 1fr); align-items: center; gap: 20px; }
+.cmp-donut svg { width: 100%; max-width: 200px; height: auto; display: block; }
+.cmp-donut .track { fill: none; stroke: var(--surface-3); stroke-width: 26; }
+.cmp-donut .ring { transform-origin: 100px 100px; animation: cmp-spin .8s cubic-bezier(.2, .8, .2, 1) both; }
+.cmp-donut .big { fill: var(--text); font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
+.cmp-donut .ax { fill: var(--muted); font-size: 11px; }
+@keyframes cmp-spin { from { transform: rotate(-90deg) scale(.85); opacity: 0; } }
+.cmp-dl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cmp-dl-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 52px; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px; border: 0; background: none; border-radius: 10px; font: inherit; color: inherit; text-align: left; }
+button.cmp-dl-row { cursor: pointer; } button.cmp-dl-row:hover { background: var(--surface-2); }
+.cmp-dl-row > i { width: 10px; height: 10px; border-radius: 3px; }
+.cmp-dl-row .n { min-width: 0; display: flex; flex-direction: column; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-dl-row .n small { font-size: 11.5px; font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.cmp-dl-row b { font-size: 13px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cmp-dl-row em { font-style: normal; font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.cmp-table-wrap { overflow-x: auto; margin-top: 12px; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cmp-table th, .cmp-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cmp-table thead th { font-weight: 600; color: var(--text); max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.cmp-table tbody th { text-align: left; font-weight: 500; color: var(--muted); }
+.cmp-table tr > :first-child { padding-left: 0; }
+.cmp-table tbody tr:last-child > * { border-bottom: 0; }
+@media (max-width: 560px) {
+  .cmp-card { padding: 14px 14px 12px; }
+  .cmp-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "l v" "t t"; gap: 4px 10px; }
+  .cmp-lbl { grid-area: l; } .cmp-val { grid-area: v; min-width: 0; } .cmp-track { grid-area: t; height: 10px; }
+  .cmp-diff { margin-left: 0; }
+  .cmp-donut { grid-template-columns: 1fr; justify-items: center; gap: 12px; }
+  .cmp-donut svg { max-width: 170px; } .cmp-dl { width: 100%; }
+  .cmp-views button span { display: none; } .cmp-views button { padding: 6px 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .cmp-fill { transition: none; } .cmp-svg .ln { animation: none; stroke-dashoffset: 0; } .cmp-svg .col, .cmp-donut .ring, .cmp-body { animation: none; } }
