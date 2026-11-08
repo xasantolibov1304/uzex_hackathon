@@ -19,7 +19,7 @@ import { ApplicationModal, LotModal, PriceModal } from "./components/Modals.jsx"
 
 const SESSION = sessionId();
 const TABS = [["agent", "Agent"], ["prices", "Narxlar"], ["lots", "Sotuvda"], ["alerts", "Kuzatuv"], ["orders", "Buyurtmalar"]];
-const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), forms: [...m.forms], alerts: [...m.alerts], alertOffers: [...m.alertOffers] });
+const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), forms: [...m.forms], alerts: [...m.alerts], alertOffers: [...m.alertOffers], charts: [...m.charts] });
 
 export default function App() {
   const [cfg, setCfg, cfgRef] = useLiveState({ aiEnabled: false, categories: [], regions: [] });
@@ -122,7 +122,7 @@ export default function App() {
     setTaskText("");
     const tt = () => tr(langRef.current);
     const n = ++seq.current;
-    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, collapsed: false, steps: [], lots: null, forms: [], alerts: [], alertOffers: [], orderId: null, replyHtml: "" };
+    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, collapsed: false, steps: [], lots: null, forms: [], alerts: [], alertOffers: [], charts: [], orderId: null, replyHtml: "" };
     runsRef.current.set(run.id, run);
     setFeed((f) => [...f, ...(hidden ? [] : [{ kind: "user", id: `u${n}`, text }]), snapshot(run)]);
     const commit = () => { const snap = snapshot(run); setFeed((f) => f.map((it) => (it.id === run.id ? snap : it))); };
@@ -292,7 +292,8 @@ export default function App() {
       for (;;) {
         const ev = await nextAction();
         if (ev.type === "__end") break;
-        await play(ev);
+        // Bitta hodisadagi xato butun oqimni to'xtatmasin (aks holda javob chiqmaydi va tugma bloklanib qoladi)
+        try { await play(ev); } catch (err) { console.error("[agent event]", ev.type, err); }
       }
       if (think) { think.status = "done"; think = null; commit(); }
     })();
