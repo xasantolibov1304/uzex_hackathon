@@ -324,11 +324,13 @@ export async function searchLots(q, { sort = "new", region = "", limit = 50 } = 
   //   "new"   — eng yangilari birinchi (standart)
   //   "cheap" — eng yangi 100 ta ichidan 1 tonna (yoki 1 birlik) narxi eng arzonlari
   const byNew = (a, b) => (Number(b.id) || 0) - (Number(a.id) || 0);
-  if (sort === "new" || sort === "cheap") list = [...list].sort(byNew);
-  if (sort === "cheap") {
+  //   "expensive" — xuddi shu 100 ta ichidan eng qimmatlari (solishtirish uchun)
+  if (sort === "new" || sort === "cheap" || sort === "expensive") list = [...list].sort(byNew);
+  if (sort === "cheap" || sort === "expensive") {
     const g = (x) => (x.perTonne != null ? 0 : 1);
-    const v = (x) => x.perTonne ?? x.perUnit ?? Infinity;
-    list = list.slice(0, 100).sort((a, b) => g(a) - g(b) || v(a) - v(b));
+    const dirn = sort === "cheap" ? 1 : -1;
+    const v = (x) => x.perTonne ?? x.perUnit ?? (sort === "cheap" ? Infinity : -Infinity);
+    list = list.slice(0, 100).sort((a, b) => g(a) - g(b) || dirn * (v(a) - v(b)));
   }
   return { query: term, total: list.length, hiddenUnreliable: hidden, items: list.slice(0, limit) };
 }

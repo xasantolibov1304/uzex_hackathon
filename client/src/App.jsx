@@ -201,12 +201,15 @@ export default function App() {
           await sleep(GAP);
           break;
         }
-        case "lots":
-          run.lots = ev.items;
+        case "lots": {
+          // Bir nechta qidiruv (masalan, eng arzon + eng qimmat) bo'lsa — takliflar qo'shiladi, takrorlar tashlanadi
+          const seen = new Set((run.lots || []).map((l) => l.lot_id));
+          run.lots = [...(run.lots || []), ...ev.items.filter((l) => !seen.has(l.lot_id))];
           commit();
           scrollFeed();
           await sleep(500);
           break;
+        }
         case "order":
           await closeThink();
           setOrdersById((m) => ({ ...m, [ev.order.id]: ev.order }));
@@ -233,6 +236,13 @@ export default function App() {
           commit();
           scrollFeed();
           await sleep(400);
+          break;
+        case "chart":
+          await closeThink();
+          run.charts.push(ev.chart);
+          commit();
+          scrollFeed();
+          await sleep(600);
           break;
         case "form":
           await closeThink();
