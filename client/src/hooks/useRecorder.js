@@ -19,13 +19,13 @@ function drawWave(canvas, g, levels) {
     const x = i * step + 1;
     const idx = i - (n - lv.length);
     if (idx < 0) { // hali yozilmagan joy — xira nuqtalar
-      g.fillStyle = "rgba(138,138,156,.25)";
+      g.fillStyle = "rgba(17,18,20,.12)";
       g.fillRect(x, h / 2 - 1, BAR_W, 2);
       continue;
     }
     const v = Math.pow(lv[idx], 0.7);
     const bh = Math.max(2, v * (h - 6));
-    g.fillStyle = "rgba(170,170,186,.85)";
+    g.fillStyle = "rgba(17,18,20,.75)";
     g.beginPath();
     g.roundRect ? g.roundRect(offset + idx * step + 1, (h - bh) / 2, BAR_W, bh, 1.5) : g.rect(offset + idx * step + 1, (h - bh) / 2, BAR_W, bh);
     g.fill();

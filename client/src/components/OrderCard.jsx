@@ -19,19 +19,21 @@ export default function OrderCard({ order: o, lang, onAction }) {
       <div className="oc-top">
         <div>
           <div className="oc-label">{t.order} · lot №{o.lotId}</div>
-          <div className="oc-title">{o.product}</div>
-          <div className="hint">{o.seller || ""}</div>
+          <div className="oc-title">{o.productUz || o.product}</div>
+          {o.productUz && o.productUz !== o.product ? <div className="hint oc-orig">{o.product}</div> : null}
+          <div className="hint">{o.sellerUz || o.seller || ""}</div>
         </div>
         <div>
           <div className="oc-total">{som(o.total)}</div>
           <div style={{ textAlign: "right", marginTop: 4 }}><span className={`status ${o.status}`}>{st}</span></div>
+          {o.viaBroker ? <div style={{ textAlign: "right", marginTop: 4 }}><span className="status broker">{t.viaBroker}</span></div> : null}
         </div>
       </div>
       <dl className="kv">
         <dt>Miqdor</dt><dd>{o.contracts} lot × {qty(o.qtyPerContract)} {o.unit} = <b>{qty(o.quantity)} {o.unit}</b></dd>
         <dt>Depozit</dt><dd>{o.depositPct ?? "—"}% — {som(o.depositSum)}</dd>
         <dt>Savdo kuni</dt><dd>{dateUz(o.tradingDate)}{o.exchangeRef ? ` · ${o.exchangeRef}` : ""}</dd>
-        <dt>Ombor</dt><dd>{o.location || "—"}</dd>
+        <dt>Ombor</dt><dd>{o.locationUz || o.location || "—"}</dd>
         <dt>Xaridor</dt><dd>{o.buyer?.fullName || "—"} · {o.buyer?.phone || ""}</dd>
       </dl>
       {o.reason ? <div className="oc-reason">{o.reason}</div> : null}

@@ -38,7 +38,23 @@ export function getProfile() {
   const p = db.profile;
   const missing = ["fullName", "entityType", "phone", "region"].filter((k) => !p[k]);
   if ((p.entityType === "yatt" || p.entityType === "yuridik") && !p.tin) missing.push("tin");
-  return { ...p, entityTypeLabel: ENTITY_TYPES[p.entityType] || null, missing, complete: missing.length === 0 };
+  return { ...p, entityTypeLabel: ENTITY_TYPES[p.entityType] || null, missing, complete: missing.length === 0, eligibility: eligibility(p.entityType) };
+}
+
+/**
+ * Kim birjada bevosita savdo qila oladi. UZEX FAQ bo'yicha: yuridik shaxslar va YaTT (broker orqali);
+ * jismoniy shaxslar ro'yxatda yo'q. Qoida o'zgargan bo'lishi mumkin — UZEX yoki broker bilan tasdiqlansin.
+ */
+export function eligibility(entityType) {
+  if (entityType === "jismoniy") {
+    return {
+      canTradeDirectly: false,
+      note: "Individuals are not listed among UZEX trading participants (legal entities and sole traders take part through brokers). Options: register as a sole trader (YaTT), or buy through a licensed broker.",
+      options: ["via_broker", "register_yatt"],
+    };
+  }
+  if (entityType === "yatt" || entityType === "yuridik") return { canTradeDirectly: true, note: "Takes part through a licensed broker." };
+  return { canTradeDirectly: null, note: "Entity type not set yet." };
 }
 export function saveProfile(patch = {}) {
   const clean = {};
@@ -73,6 +89,15 @@ export function nextTradingDay(from = new Date()) {
   return day.toISOString().slice(0, 10);
 }
 
+/** Bugun savdo kunimi (Du–Ju, Toshkent vaqti)? Bayram kunlari hisobga olinmagan. */
+export function tradingStatus(now = new Date()) {
+  const today = now.toLocaleDateString("en-CA", { timeZone: "Asia/Tashkent" });
+  const [y, m, d] = today.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const isTradingDay = dow !== 0 && dow !== 6;
+  return { today, isTradingDay, reason: isTradingDay ? null : "weekend", nextTradingDay: nextTradingDay(now) };
+}
+
 // ---------- buyurtmalar ----------
 function computed(o) {
   const total = Math.round(o.pricePerContract * o.contracts);
@@ -86,11 +111,19 @@ export function getOrder(id) {
 }
 
 /** Agent chaqiradi: real lotdan buyurtma qoralamasi (foydalanuvchi tasdig'i kutiladi). */
-export async function createOrder({ lotId, contracts, reason = "" }) {
+export async function createOrder({ lotId, contracts, reason = "", viaBroker = false }) {
   const n = Math.floor(Number(contracts));
   if (!Number.isFinite(n) || n < 1 || n > 1000) throw new OrderError("Lotlar soni 1 dan 1000 gacha bo'lishi kerak.");
   const prof = getProfile();
   if (!prof.complete) throw new OrderError(`Profil to'liq emas, yetishmayapti: ${prof.missing.join(", ")}. Foydalanuvchidan so'rab, save_profile chaqiring.`);
+  // Jismoniy shaxs birjada bevosita qatnasha olmaydi: avval yo'lini tanlasin (broker orqali yoki YaTT)
+  if (prof.entityType === "jismoniy" && !viaBroker) {
+    throw new OrderError(
+      "Buyer is an individual (jismoniy shaxs), who cannot trade on UZEX directly. Do not create the order yet: explain the two options " +
+        "(buy through a licensed broker, or register as a sole trader / YaTT) and let the user choose. If they choose a broker, call create_order again with via_broker: true. " +
+        "If they choose YaTT, ask for the profile form (entity type yatt + STIR) first.",
+    );
+  }
   const lot = await getLot(lotId);
   db.orders = db.orders.filter((o) => !(o.lotId === lot.id && o.status === "awaiting_confirmation"));
   const now = new Date().toISOString();
@@ -98,6 +131,9 @@ export async function createOrder({ lotId, contracts, reason = "" }) {
     id: "ord_" + crypto.randomBytes(4).toString("hex"),
     lotId: lot.id,
     product: lot.product,
+    productUz: lot.productUz,
+    sellerUz: lot.sellerUz,
+    locationUz: lot.locationUz,
     seller: lot.seller,
     unit: lot.unit,
     qtyPerContract: lot.qty,
@@ -110,10 +146,14 @@ export async function createOrder({ lotId, contracts, reason = "" }) {
     url: lot.url,
     contracts: n,
     reason: String(reason).slice(0, 400),
+    viaBroker: Boolean(viaBroker),
     status: "awaiting_confirmation",
     tradingDate: nextTradingDay(),
     buyer: { fullName: prof.fullName, entityType: prof.entityType, tin: prof.tin || null, phone: prof.phone, region: prof.region },
-    timeline: [{ at: now, text: "Agent lotni tanladi va buyurtma qoralamasini tayyorladi" }],
+    timeline: [
+      { at: now, text: "Agent lotni tanladi va buyurtma qoralamasini tayyorladi" },
+      ...(viaBroker ? [{ at: now, text: "Xarid litsenziyali broker orqali amalga oshiriladi (jismoniy shaxs)" }] : []),
+    ],
     createdAt: now,
   };
   db.orders.unshift(order);

@@ -2,12 +2,17 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CATEGORIES, REGIONS, getDaily, getKeyQuotes, getLot, getTodayOffers, getUsdUzs, searchLots, searchPrices } from "./src/uzex.js";
-import { OrderError, applicationText, cancelOrder, confirmOrder, getProfile, listOrders, saveProfile } from "./src/store.js";
+import { OrderError, applicationText, cancelOrder, confirmOrder, getProfile, listOrders, saveProfile, tradingStatus } from "./src/store.js";
 import { agentConfigured, describeAgentError, resetSession, runTask, transcribe } from "./src/agent.js";
+import { speak } from "./src/voice.js";
+import { rateLimit, sameOrigin } from "./src/ratelimit.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === "production" || process.argv.includes("--production");
 const app = express();
+// Hosting (Railway, Render, Nginx…) proksi orqali ishlaganda haqiqiy IP X-Forwarded-For'da keladi.
+// TRUST_PROXY = proksilar soni (production'da standart 1, lokalda 0).
+app.set("trust proxy", Number(process.env.TRUST_PROXY ?? (isProd ? 1 : 0)));
 app.use("/api/transcribe", express.json({ limit: "12mb" }));
 app.use(express.json({ limit: "20kb" }));
 
@@ -25,7 +30,7 @@ app.get("/api/config", (_req, res) =>
 // ---------- UZEX ma'lumotlari ----------
 app.get("/api/overview", wrap(async (_req, res) => {
   const [quotes, daily, today, usd] = await Promise.all([getKeyQuotes(), getDaily().catch(() => []), getTodayOffers().catch(() => null), getUsdUzs().catch(() => null)]);
-  res.json({ quotes, daily, today, usdUzs: usd, source: "uzex.uz", fetchedAt: Date.now() });
+  res.json({ quotes, daily, today, usdUzs: usd, trading: tradingStatus(), source: "uzex.uz", fetchedAt: Date.now() });
 }));
 app.get("/api/prices", wrap(async (req, res) => {
   res.json(await searchPrices(String(req.query.q || "").slice(0, 80), { category: String(req.query.category || ""), limit: 60 }));
@@ -79,6 +84,21 @@ app.post("/api/agent/reset", (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- matn → ovoz (ElevenLabs, zaxira: bepul Edge neyron ovozlari) ----------
+// Har bir tashrif buyuruvchiga 10 daqiqada 30 ta ovoz (bir javob = bitta ovoz)
+const ttsLimit = rateLimit({ max: Number(process.env.TTS_LIMIT ?? 30), windowMs: 10 * 60_000, message: "Ovoz limiti tugadi. Birozdan so'ng qayta urinib ko'ring." });
+app.post("/api/tts", sameOrigin, ttsLimit, async (req, res) => {
+  const { text, lang, mood } = req.body || {};
+  if (typeof text !== "string" || !text.trim()) return res.status(400).json({ error: "Matn bo'sh." });
+  try {
+    const { audio, provider } = await speak({ text: text.slice(0, 400), lang: String(lang || "uz").slice(0, 2), mood: String(mood || "calm").slice(0, 12) });
+    res.type("audio/mpeg").set({ "cache-control": "no-store", "x-voice-provider": provider }).send(audio);
+  } catch (err) {
+    console.error("[tts]", err?.status ?? "", err?.message);
+    res.status(502).json({ error: "Ovozni tayyorlab bo'lmadi." });
+  }
+});
+
 // ---------- ovoz → matn ----------
 app.post("/api/transcribe", async (req, res) => {
   const { data, mimeType, lang } = req.body || {};
@@ -105,6 +125,6 @@ if (isProd) {
 
 const PORT = Number(process.env.PORT) || 3000;
 app.listen(PORT, () => {
-  console.log(`Oson Birja (UZEX agent): http://localhost:${PORT}`);
+  console.log(`UZEX 2.0 (agent): http://localhost:${PORT}`);
   if (!agentConfigured()) console.log("⚠  GEMINI_API_KEY topilmadi — AI agent o'chiq (.env faylga qo'shing).");
 });

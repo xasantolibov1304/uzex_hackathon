@@ -1,10 +1,10 @@
-// Oson Birja — avtonom AI agent uchun frontend (React)
+// UZEX 2.0 — avtonom AI agent uchun frontend (React)
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { OsonAvatar } from "./lib/avatar.js";
 import { OsonSpeech } from "./lib/speech.js";
 import { createDock } from "./lib/dock.js";
-import { api, sessionId, streamAgent } from "./lib/api.js";
+import { api, fetchTts, sessionId, streamAgent } from "./lib/api.js";
 import { T, tr } from "./lib/i18n.js";
 import { esc, mdLite, store } from "./lib/format.js";
 import { useLiveState, useLots, usePrices } from "./hooks/useSearch.js";
@@ -69,7 +69,7 @@ export default function App() {
     drive: (v) => avatarRef.current?.drive(v),
   }), []);
   const speech = useMemo(() => ({
-    say: (text, l, onFrame, onEnd) => speechRef.current?.say(text, { lang: l, voice: voiceRef.current, onFrame, onEnd }),
+    say: (text, l, onFrame, onEnd, extra = {}) => speechRef.current?.say(text, { lang: l, voice: voiceRef.current, onFrame, onEnd, ...extra }),
     stop: () => speechRef.current?.stop(),
     hasVoice: (l) => Boolean(speechRef.current?.hasVoice(l)),
   }), [voiceRef]);
@@ -128,64 +128,122 @@ export default function App() {
     avatar.setState("thinking");
     scrollFeed();
 
+    // ---------- Qadamlarni birma-bir ko'rsatish ----------
+    // Server hodisalari juda tez (va parallel) keladi. Foydalanuvchi agent nima qilayotganini ko'rishi uchun
+    // ular navbatga olinadi va BITTADAN o'ynatiladi: har bir qadam kamida STEP_MIN davomida "bajarilmoqda"
+    // holatida turadi, so'ng natijasi chiqadi. Qadamlar orasida — "o'ylayapman" bosqichlari.
+    const STEP_MIN = 1150, THINK_MIN = 900, GAP = 280;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const queue = [];
+    let wake = null;
+    const push = (a) => { queue.push(a); wake?.(); };
+    const nextAction = async () => { while (!queue.length) await new Promise((r) => (wake = r)); wake = null; return queue.shift(); };
+    const results = new Map(); // qadam id → yakuniy hodisa (done/error)
+    const waiters = new Map();
+    let streamDone = false;
+    const resultOf = (id) => (results.has(id) || streamDone ? Promise.resolve(results.get(id)) : new Promise((r) => waiters.set(id, r)));
+    const settle = () => { streamDone = true; for (const r of waiters.values()) r(undefined); waiters.clear(); };
+
+    let think = null; // hozir ko'rinayotgan "o'ylayapman" qatori
+    let thinkNo = 0;
+    const addRow = (row) => { run.stepsHidden = false; run.steps.push(row); commit(); scrollFeed(); return row; };
+    const closeThink = async (label) => {
+      if (!think) return;
+      const left = think.t0 + THINK_MIN - performance.now();
+      if (left > 0) await sleep(left);
+      think.status = "done";
+      think.label = label || (think.id === "t1" ? tt().think.firstDone : tt().think.nextDone);
+      commit();
+      think = null;
+      await sleep(GAP);
+    };
+
     const onEvent = (ev) => {
+      if (ev.type === "step" && ev.status !== "running") {
+        results.set(ev.id, ev);
+        waiters.get(ev.id)?.(ev);
+        waiters.delete(ev.id);
+      } else if (ev.type !== "end") {
+        // Javob kelishi bilan ovozni darhol so'raymiz — qadamlar animatsiyasi davomida tayyor bo'lib turadi
+        if (ev.type === "reply" && voiceRef.current && String(ev.spoken || "").trim()) {
+          ev.audio = fetchTts({ text: String(ev.spoken).trim(), lang: ev.lang || langRef.current, mood: ev.mood });
+        }
+        push(ev);
+      }
+    };
+
+    const play = async (ev) => {
       switch (ev.type) {
-        case "thinking":
-          if (!run.steps.some((s) => s.status === "running")) avatar.setState("thinking");
+        case "thinking": {
+          if (think) break;
+          think = addRow({ id: `t${++thinkNo}`, kind: "think", label: thinkNo === 1 ? tt().think.first : tt().think.next, status: "running", detail: "", t0: performance.now() });
+          avatar.setState("thinking");
           break;
+        }
         case "step": {
-          run.stepsHidden = false;
-          let s = run.steps.find((x) => x.id === ev.id);
-          if (!s) {
-            s = { id: ev.id, label: ev.label, status: "running", detail: "" };
-            run.steps.push(s);
-            avatar.setState("working");
-            avatar.setLevel(0.5);
-          }
-          if (ev.status !== "running") {
-            s.status = ev.status;
-            s.detail = ev.detail || "";
-            doneCount++;
-            avatar.setLevel(0.7);
-          }
+          await closeThink();
+          const s = addRow({ id: ev.id, kind: "tool", label: ev.label, status: "running", detail: "", t0: performance.now() });
+          run.title = tt().working;
+          avatar.setState("working");
+          avatar.setLevel(0.5);
+          const res = await resultOf(ev.id);
+          const left = s.t0 + STEP_MIN + Math.random() * 450 - performance.now();
+          if (left > 0) await sleep(left);
+          s.status = res?.status || "done";
+          if (res?.label) s.label = res.label;
+          s.detail = res?.detail || "";
+          doneCount++;
           run.count = `· ${doneCount}`;
+          avatar.setLevel(0.7);
           commit();
-          scrollFeed();
+          await sleep(GAP);
           break;
         }
         case "lots":
           run.lots = ev.items;
           commit();
+          scrollFeed();
+          await sleep(500);
           break;
         case "order":
+          await closeThink();
           setOrdersById((m) => ({ ...m, [ev.order.id]: ev.order }));
+          if (ev.replaced) { loadOrders(); break; } // o'zgartirilgan eski qoralama — faqat eski kartochka yangilanadi
           run.orderId = ev.order.id;
           commit();
           loadOrders();
           scrollFeed();
+          await sleep(500);
           break;
         case "profile":
           if (tabRef.current === "orders") loadProfile();
           break;
         case "form":
+          await closeThink();
           run.forms.push(ev.form);
           commit();
           scrollFeed();
           break;
         case "reply": {
-          run.collapsed = true;
+          await closeThink(tt().think.final);
           run.title = tt().done(doneCount);
           if (!doneCount) run.stepsHidden = true;
           commit();
           avatar.setMood(ev.mood || "calm");
-          speech.say(ev.text, langRef.current, (k, end) => {
-            run.replyHtml = mdLite(ev.text.slice(0, k)) + (end ? "" : '<span class="caret"></span>');
+          // Ovozda faqat qisqa gap (spoken) o'qiladi; chatda — shu gap + tafsilotlar
+          const spoken = String(ev.spoken || "").trim();
+          const shown = [spoken, ev.text].filter(Boolean).join("\n");
+          const l = ev.lang || langRef.current; // javob tili (yozilgan tilga qarab), interfeys tili emas
+          const audio = voiceRef.current && spoken ? (ev.audio || fetchTts({ text: spoken, lang: l, mood: ev.mood })) : null;
+          speech.say(shown, l, (k, end) => {
+            run.replyHtml = mdLite(shown.slice(0, k)) + (end ? "" : '<span class="caret"></span>');
             commit();
             if (k % 60 === 0) scrollFeed();
-          }, () => setTimeout(() => avatar.setMood("calm"), 2500));
+          }, () => setTimeout(() => avatar.setMood("calm"), 2500), { spoken, audio, leadLen: spoken.length });
           break;
         }
         case "error":
+          if (think) { think.status = "error"; think = null; }
           run.replyHtml = `<p class="reply err">${esc(ev.error)}</p>`;
           run.title = tt().failed;
           commit();
@@ -195,11 +253,32 @@ export default function App() {
       }
     };
 
+    // Avvalgi vazifalarning qadamlari yig'iladi — tarix ixcham qoladi, joriy vazifa esa to'liq ko'rinadi
+    setFeed((f) => f.map((it) => {
+      if (it.kind !== "run" || it.id === run.id) return it;
+      const r = runsRef.current.get(it.id);
+      if (!r || r.collapsed) return it;
+      r.collapsed = true;
+      return snapshot(r);
+    }));
+
+    const pump = (async () => {
+      for (;;) {
+        const ev = await nextAction();
+        if (ev.type === "__end") break;
+        await play(ev);
+      }
+      if (think) { think.status = "done"; think = null; commit(); }
+    })();
+
     try {
       await streamAgent({ sessionId: SESSION, text, lang: langRef.current, screen: tabRef.current }, onEvent);
     } catch (e) {
-      onEvent({ type: "error", error: e.message });
+      push({ type: "error", error: e.message });
     } finally {
+      settle();
+      push({ type: "__end" });
+      await pump;
       setBusy(false);
       if (canvasRef.current?.dataset.state !== "speaking") avatar.setState("idle");
     }
@@ -366,8 +445,9 @@ export default function App() {
     <>
       <header className="top">
         <div className="brand">
+          {/* Agent avatari (4×4 kub) kutishda shu yerda logo bo'lib turadi, ishlaganda markazga uchadi */}
           <span className="logo-slot" id="logoSlot" ref={logoSlotRef} aria-hidden="true"></span>
-          <span className="brand-name">Oson<span className="dot">·</span>Birja</span>
+          <span className="brand-name">UZEX <span className="ver">2.0</span></span>
           <span className="badge" title="Birjaga yuborish demo rejimida">DEMO</span>
         </div>
         <nav className="seg" aria-label="Bo'limlar">
@@ -379,7 +459,15 @@ export default function App() {
           ))}
         </nav>
         <div className="right">
-          <button className="icon-btn" id="voiceToggle" title="Agent ovozi" aria-pressed={String(voiceOn)} aria-label="Agent ovozi" onClick={toggleVoice}>{voiceOn ? "🔊" : "🔈"}</button>
+          <button className="icon-btn" id="voiceToggle" title="Agent ovozi" aria-pressed={String(voiceOn)} aria-label="Agent ovozi" onClick={toggleVoice}>
+            {/* Karnay ikonkasi: yoqilgan — to'lqinlar, o'chirilgan — ustidan chiziq */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+              {voiceOn
+                ? <><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></>
+                : <path d="m16 9 5 6m0-6-5 6" />}
+            </svg>
+          </button>
           <div className="langs" role="group" aria-label="Til">
             {["uz", "ru", "en"].map((l) => <button key={l} className={lang === l ? "active" : undefined} onClick={() => setLang(l)}>{l.toUpperCase()}</button>)}
           </div>
@@ -388,7 +476,7 @@ export default function App() {
 
       <main>
         <AgentView active={tab === "agent"} started={started} ready={ready} aiEnabled={cfg.aiEnabled} t={t} feed={feed}
-          ordersById={ordersById} lang={lang} stageSlotRef={stageSlotRef} ctx={ctx} />
+          ordersById={ordersById} lang={lang} stageSlotRef={stageSlotRef} quotes={overview?.quotes} trading={overview?.trading} usd={overview?.usdUzs} ctx={ctx} />
         <PricesView active={tab === "prices"} categories={cfg.categories} prices={prices} overview={overview} onOpenPrice={openPrice} />
         <LotsView active={tab === "lots"} regions={cfg.regions} lots={lots} onOpenLot={openLot} />
         <OrdersView active={tab === "orders"} orders={orders} profile={profile} profileVer={profileVer} lang={lang}
@@ -432,7 +520,7 @@ export default function App() {
 
       <div className="toast" id="toast" hidden={!toastState.shown}>{toastState.msg}</div>
       {/* Avatar: bitta canvas logo va markaz orasida "uchadi" */}
-      <canvas id="avatar" className="avatar-fly" ref={canvasRef} role="img" aria-label="Oson AI agent avatari"></canvas>
+      <canvas id="avatar" className="avatar-fly" ref={canvasRef} role="img" aria-label="UZEX 2.0 agent avatari"></canvas>
     </>
   );
 }

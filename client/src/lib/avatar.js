@@ -1,234 +1,259 @@
-// Oson AI avatari — shisha shar ichidagi energiya (WebGL fragment shader).
-// Holatlar (silliq o'tish bilan): idle · thinking · working · speaking · listening
-// Kayfiyat: calm · happy · excited · concerned
-// API: OsonAvatar.mount(canvas, params?) → { setState, setMood, setLevel, drive, setParams, getParams, destroy }
-// Sozlamalar /avatar-lab.html da tanlanib, localStorage("osonAvatarParams") orqali ilovaga o'tadi.
+// UZEX 2.0 agent avatari — logodan yasalgan 3D 4×4×4 Rubik kubi (three.js).
+// Har bir yuz — logo: 4 rangli kvadrat (har biri 2×2 stikerdan).
+// Kutishda kub kameraga to'g'ri qaragan, oraliqsiz va yoritilmagan — aynan tekis logo bo'lib ko'rinadi.
+// Faollashganda kub 3/4 burchakka buriladi, kubchalar ajraladi va qatlamlar haqiqiy Rubik kubidek aylanadi;
+// ish tugagach barcha burilishlar teskari tartibda qaytariladi — kub yana logoga "yechiladi".
+// Holatlar: idle · thinking · working · speaking · listening   Kayfiyat: calm · happy · excited · concerned
+// API (avvalgi bilan bir xil): OsonAvatar.mount(canvas, params?) →
+//   { setState, setMood, setLevel, drive, setParams, getParams, debug, destroy }
+import * as THREE from "three";
 
-export const OsonAvatar = (() => {
-  const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
-  const FRAG = `
-precision highp float;
-uniform vec2 uRes;
-uniform float uTime;   // oqim soati (tezlik holatga bog'liq)
-uniform float uReal;   // haqiqiy vaqt (pulsatsiyalar uchun)
-uniform float uLevel;  // ovoz/nutq kuchi 0..1
-uniform float uThink, uWork, uSpeak, uListen; // holat og'irliklari 0..1
-uniform float uGlow, uSwirl, uRimW, uDetail;
-uniform vec3 uColA, uColB, uColC;
+// 3D kub — Rive fayli (avatar.riv) bo'lmaganda ishlatiladigan zaxira avatar
+export const CubeAvatar = (() => {
+  const N = 4;
+  const H = (N - 1) / 2; // 1.5 — chekka kubchaning koordinatasi
+  const FOV = 18;
+  const FILL = 0.66; // kutishda kub yuzi canvas balandligining 66% i (dock.js dagi ORB bilan bir xil)
 
-const float PI = 3.14159265;
-float hash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
-float noise(vec2 p){
-  vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
-  return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
-}
-float fbm(vec2 p){ float v = 0.0, a = 0.5; mat2 m = mat2(1.6, 1.2, -1.2, 1.6); for (int i = 0; i < 5; i++){ v += a*noise(p); p = m*p; a *= 0.5; } return v; }
-float fbm3(vec2 p){ float v = 0.0, a = 0.55; mat2 m = mat2(1.5, 1.0, -1.0, 1.5); for (int i = 0; i < 3; i++){ v += a*noise(p); p = m*p; a *= 0.45; } return v/0.9; }
-mat2 rot(float a){ float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
-
-void main(){
-  vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / min(uRes.x, uRes.y);
-  float t = uTime, rt = uReal, L = uLevel;
-  float ang = atan(uv.y, uv.x);
-
-  // Radius: nafas + nutq kengayishi + gapirganda halqa to'lqini
-  float breath = 0.012*sin(rt*1.1);
-  float R = 0.33*(1.0 + breath + 0.14*L*uSpeak + 0.05*L*uListen);
-  // Gapirganda halqada nozik to'lqin (cos — burchak bo'yicha uzluksiz)
-  float wave = (0.0045*cos(ang*4.0 + rt*6.0) + 0.0025*cos(ang*7.0 - rt*9.0)) * L * uSpeak;
-  float Rw = R + wave;
-  float d = length(uv);
-  float inside = smoothstep(Rw + 0.004, Rw - 0.004, d);
-
-  // Soxta 3D: sfera normali — markaz bo'rtib, chetlar siqilib ko'rinadi (shisha linza)
-  vec2 sp = uv / R;
-  float rr = clamp(length(sp), 0.0, 1.0);
-  float z = sqrt(max(0.0, 1.0 - rr*rr));
-  vec2 bp = sp / (0.55 + 0.45*z);
-
-  // Ichki oqim: aylanish + domain warp
-  float spin = t*(0.12 + uSwirl*(0.35*uThink + 0.7*uWork + 0.25*uSpeak)) - 0.2*uListen*rt;
-  vec2 p = rot(spin) * bp;
-  vec2 w = vec2(fbm3(p*1.2 + vec2(t*0.11, 0.0)), fbm3(p*1.2 + vec2(3.1, -t*0.13)));
-  vec2 p2 = p*(0.8 + 0.5*uDetail) + (w - 0.5)*(1.4 + 0.7*L);
-  float f = fbm3(p2 + vec2(t*0.15, -t*0.06));
-  float g = mix(fbm3(p2*1.6 - vec2(t*0.1, t*0.12) + 5.0), fbm(p2*1.6 + 9.0), 0.25*uDetail);
-  // Yumshoq nurli pardalar (veil) va kam sonli silliq tolalar (silk)
-  float veil = pow(smoothstep(0.30, 0.85, f), 1.6);
-  float silk = exp(-pow((g - 0.52)*9.0, 2.0)) * (0.35 + 0.65*uDetail);
-
-  // Energiya bir tomonga to'planadi va asta aylanadi (videodagidek); markaz qorong'i va shaffof
-  vec2 dir = vec2(cos(t*0.22 + 2.0), sin(t*0.22 + 2.0));
-  float side = smoothstep(-0.9, 0.9, dot(sp, dir));
-  float edge = smoothstep(0.15, 1.0, rr);
-
-  vec3 col = vec3(0.0);
-  col += uColA * veil * edge * (0.25 + 1.05*side) * (0.9 + 1.4*L);
-  col += uColB * silk * edge * (0.2 + 0.9*side) * (0.8 + 1.6*L);
-  col += mix(uColA, uColB, f) * veil * silk * 0.6 * side;
-
-  // Kometa izi: markazdan chetga oqadigan yorqin chiziq (ishlash/o'ylashda kuchli)
-  float ca = t*0.45 + 1.3;
-  float da = abs(mod(ang - ca + PI, 2.0*PI) - PI);
-  float tail = exp(-da*da*(26.0 - 10.0*rr)) * smoothstep(0.05, 0.35, rr) * smoothstep(1.0, 0.55, rr);
-  col += mix(uColA, uColB, rr) * tail * (0.25 + 0.7*uWork + 0.4*uThink + 0.5*L);
-
-  // Markazdagi yulduz (nurli uchqun)
-  vec2 c = sp - 0.07*vec2(sin(t*0.6), cos(t*0.8));
-  float cd = length(c);
-  float star = 0.018/(cd + 0.03) + exp(-cd*14.0)*0.35;
-  star += (exp(-abs(c.x)*55.0)*exp(-abs(c.y)*5.0) + exp(-abs(c.y)*55.0)*exp(-abs(c.x)*5.0)) * 0.22;
-  star *= 0.55 + 0.9*L + 0.3*uThink*(0.5 + 0.5*sin(rt*5.0));
-  col += mix(uColC, vec3(1.0), 0.65) * star;
-
-  // Tinglash: ichkariga oquvchi halqalar
-  float rings = 0.5 + 0.5*sin(rr*28.0 + rt*7.0);
-  col += uColA * rings * pow(rr, 2.5) * 0.3 * uListen * (0.35 + L);
-
-  // Shisha: chetga yaqin ichki yorug'lik (fresnel) va yaltiroq dog'
-  col += mix(uColA, uColB, 0.5 + 0.5*sp.y) * pow(rr, 7.0) * 0.45;
-  col *= inside;
-  vec2 hl = sp - vec2(-0.42, 0.48);
-  col += vec3(1.0) * exp(-dot(hl, hl)*16.0) * 0.07 * inside;
-
-  // Halqa (rim): burchak bo'yicha uzluksiz gradient
-  float hue = 0.5 + 0.5*cos(ang - t*(0.35 + 1.1*uWork) + 0.6);
-  vec3 rimCol = mix(uColA, uColB, hue);
-  float rimW = uRimW*0.0045 + 0.003*L;
-  float rim = exp(-abs(d - Rw)/rimW);
-  float seg = 0.5 + 0.5*cos(ang*3.0 - rt*5.5);           // ishlash: yuguruvchi segmentlar
-  float rimMul = mix(1.0, 0.35 + 1.35*seg, uWork);
-  rimMul *= 1.0 + 0.4*uThink*sin(rt*3.5);                // o'ylash: pulsatsiya
-  col += rimCol * rim * rimMul * (1.25 + 1.6*L) * uGlow;
-
-  // Tashqi nur (halo)
-  float halo = exp(-max(d - Rw, 0.0)*(10.0 - 4.5*L)) * (1.0 - inside);
-  col += rimCol * halo * (0.14 + 0.55*L + 0.12*(uThink + uWork)) * uGlow;
-
-  col = 1.0 - exp(-col*1.35);
-  float alpha = clamp(max(max(col.r, col.g), col.b)*1.6, 0.0, 1.0);
-  gl_FragColor = vec4(col, alpha);
-}`;
-
+  // Logoning 4 rangi: chap-tepa, o'ng-tepa, chap-past, o'ng-past (sRGB)
   const MOODS = {
-    calm: [[0.36, 0.5, 1.0], [0.96, 0.4, 0.74], [0.6, 0.72, 1.0]],
-    happy: [[0.66, 0.44, 1.0], [1.0, 0.45, 0.7], [1.0, 0.84, 0.96]],
-    excited: [[0.28, 0.66, 1.0], [1.0, 0.3, 0.58], [1.0, 1.0, 1.0]],
-    concerned: [[1.0, 0.56, 0.28], [0.95, 0.28, 0.4], [1.0, 0.78, 0.5]],
-    listening: [[0.22, 0.86, 0.92], [0.42, 0.52, 1.0], [0.75, 1.0, 1.0]],
+    calm: ["#12c26b", "#3ee28c", "#5b80ec", "#3e5fd8"],
+    happy: ["#1ed07a", "#5ceca2", "#7096f6", "#5274e8"],
+    excited: ["#00d670", "#2cf698", "#5484ff", "#2c5cfc"],
+    concerned: ["#e2a026", "#f4c052", "#e87a5c", "#cc5c48"],
+    listening: ["#10c8a8", "#46ecc8", "#5c9aff", "#3c70f2"],
   };
-  // Har bir holatda ichki oqim tezligi va "fon" faolligi
+  // gap — kubchalar oralig'i, every — yangi burilish oralig'i (ms; null — faqat yechish), dur — burilish (ms)
   const STATE = {
-    idle: { speed: 0.10, base: 0.0 },
-    thinking: { speed: 0.55, base: 0.18 },
-    working: { speed: 0.9, base: 0.28 },
-    speaking: { speed: 0.5, base: 0.02 },
-    listening: { speed: 0.35, base: 0.06 },
+    idle: { gap: 0, every: null, dur: 320, base: 0 },
+    thinking: { gap: 0.07, every: 900, dur: 560, base: 0.12 },
+    working: { gap: 0.08, every: 60, dur: 300, base: 0.2 },
+    speaking: { gap: 0.06, every: null, dur: 220, base: 0.02 },
+    listening: { gap: 0.07, every: null, dur: 240, base: 0.05 },
   };
+  // speed — burilish tezligi, glow — yorug'lik, swirl — kub aylanishi, rimWidth — oraliq, detail — yaltiroqlik
   const DEFAULTS = { speed: 1, glow: 1, swirl: 1, rimWidth: 1, detail: 0.5, response: 1 };
 
   function loadSaved() {
     try { return JSON.parse(localStorage.getItem("osonAvatarParams") || "null") || {}; } catch { return {}; }
   }
+  const easeIO = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+  const AX = ["x", "y", "z"];
 
   function mount(canvas, initial) {
     const params = { ...DEFAULTS, ...loadSaved(), ...(initial || {}) };
-    const gl = canvas.getContext("webgl", { premultipliedAlpha: false, alpha: true, antialias: true });
     const st = {
-      state: "idle", mood: "calm", level: 0, target: 0, drive: 0, driveAt: 0,
-      w: { thinking: 0, working: 0, speaking: 0, listening: 0 },
-      col: MOODS.calm.map((c) => c.slice()), speed: STATE.idle.speed,
+      state: "idle", mood: "calm", level: 0, target: 0, drive: 0, driveAt: 0, pop: 0,
+      w: { thinking: 0, working: 0, speaking: 0, listening: 0 }, gap: 0,
+      rx: 0, ry: 0, spin: 0,
     };
     const api = {
-      /** Bir martalik impuls (masalan, "qadam bajarildi"): tez ko'tariladi, asta so'nadi. */
-      setLevel(v) { st.target = Math.max(st.target, Math.max(0, Math.min(1, v)) * params.response); },
-      /** Uzluksiz signal (nutq ritmi, mikrofon): darajani bevosita boshqaradi — bo'g'inlar orasida aniq pasayadi. */
+      /** Bir martalik impuls (masalan, "qadam bajarildi"): kub bir "sakraydi". */
+      setLevel(v) { const x = Math.max(0, Math.min(1, v)) * params.response; st.target = Math.max(st.target, x); st.pop = Math.max(st.pop, x); },
+      /** Uzluksiz signal (nutq ritmi, mikrofon). */
       drive(v) { st.drive = Math.max(0, Math.min(1, v)) * params.response; st.driveAt = performance.now(); },
       setState(s) { if (STATE[s]) { st.state = s; canvas.dataset.state = s; } },
-      setMood(m) { if (MOODS[m]) st.mood = m; },
+      setMood(m) { if (MOODS[m] && m !== "listening") st.mood = m; },
       setParams(p) { Object.assign(params, p); },
       getParams() { return { ...params }; },
-      get debug() { return { state: st.state, mood: st.mood, level: +st.level.toFixed(3), weights: { ...st.w } }; },
-      /** Animatsiya siklini to'xtatadi (React komponenti unmount bo'lganda). */
-      destroy() { stopped = true; cancelAnimationFrame(raf); },
+      get debug() { return { state: st.state, mood: st.mood, level: +st.level.toFixed(3), weights: { ...st.w }, scrambled: history.length }; },
+      destroy() { stopped = true; cancelAnimationFrame(raf); try { renderer?.dispose(); } catch { /* */ } },
     };
-    let stopped = false;
-    let raf = 0;
+    let stopped = false, raf = 0, renderer = null;
+    const history = [];
     canvas.dataset.state = "idle";
-    if (!gl) { canvas.classList.add("no-webgl"); return api; }
 
-    const sh = (type, src) => {
-      const s = gl.createShader(type);
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-      return s;
-    };
-    const prog = gl.createProgram();
-    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-    gl.useProgram(prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, "p");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    const U = {};
-    for (const n of ["uRes", "uTime", "uReal", "uLevel", "uThink", "uWork", "uSpeak", "uListen", "uGlow", "uSwirl", "uRimW", "uDetail", "uColA", "uColB", "uColC"]) U[n] = gl.getUniformLocation(prog, n);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: "low-power" });
+    } catch {
+      canvas.classList.add("no-webgl");
+      return api;
+    }
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 100);
+    // Kub yuzi (N birlik) ko'rinish balandligining FILL qismini egallaydi
+    const DIST = N / (FILL * 2 * Math.tan((FOV / 2) * Math.PI / 180)) + H + 0.5;
+    camera.position.set(0, 0, DIST);
+
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.1);
+    const key = new THREE.DirectionalLight(0xffffff, 1.6);
+    key.position.set(-4, 6, 8);
+    const rim = new THREE.DirectionalLight(0xcfe8ff, 0.6);
+    rim.position.set(6, -2, -4);
+    scene.add(hemi, key, rim);
+
+    // Materiallar: 4 stiker rangi + ichki (to'q) qism. Kutishda emissive=rang, chiroqlar o'chiq → aniq logo rangi
+    const stick = MOODS.calm.map((hex) => {
+      const c = new THREE.Color(hex);
+      return new THREE.MeshStandardMaterial({ color: c, emissive: c.clone(), emissiveIntensity: 1, roughness: 0.38, metalness: 0.05 });
+    });
+    // Ichki yuzlar (oraliqlar va burilishda ko'rinadi): kubchaning o'z rangining ochroq tusi — qora emas
+    const WHITE = new THREE.Color("#ffffff");
+    const innerOf = (c) => c.clone().lerp(WHITE, 0.45);
+    const inner = stick.map((m) => new THREE.MeshStandardMaterial({ color: innerOf(m.color), emissive: innerOf(m.color), emissiveIntensity: 0.35, roughness: 0.55, metalness: 0 }));
+    const targetCols = MOODS.calm.map((h) => new THREE.Color(h));
+
+    // Yuz bo'yicha (u, v) o'qlari — har bir yuzda logo tashqaridan qaraganda bir xil ko'rinadi
+    // Box material tartibi: +x, -x, +y, -y, +z, -z
+    const FACES = [
+      (p) => [-p.z, p.y], (p) => [p.z, p.y],
+      (p) => [p.x, -p.z], (p) => [p.x, p.z],
+      (p) => [p.x, p.y], (p) => [-p.x, p.y],
+    ];
+    const ext = (p) => [p.x === H, p.x === -H, p.y === H, p.y === -H, p.z === H, p.z === -H];
+    const quadOf = ([u, v]) => (v > 0 ? 0 : 2) + (u < 0 ? 0 : 1);
+
+    const cube = new THREE.Group();
+    const pivot = new THREE.Group();
+    cube.add(pivot);
+    scene.add(cube);
+    const geo = new THREE.BoxGeometry(1, 1, 1);
+    const cubies = [];
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
+      const p = new THREE.Vector3(i - H, j - H, k - H);
+      const e = ext(p);
+      if (!e.some(Boolean)) continue; // ichki kubchalar ko'rinmaydi
+      const own = quadOf(FACES[e.findIndex(Boolean)](p)); // kubchaning asosiy rangi — birinchi tashqi yuzidan
+      const mats = e.map((on, f) => (on ? stick[quadOf(FACES[f](p))] : inner[own]));
+      const m = new THREE.Mesh(geo, mats);
+      m.userData.l = p.clone(); // mantiqiy joy (-1.5..1.5, 0.5 qadam)
+      m.userData.seed = Math.random() * 10;
+      cube.add(m);
+      cubies.push(m);
+    }
+
+    /* ---------- burilishlar ---------- */
+    let anim = null; // { m: {a, layer, d}, undo, start, dur, list }
+    let nextAt = 0;
+    const inv = (m) => ({ ...m, d: -m.d });
+    function begin(m, undo, dur, now) {
+      const list = cubies.filter((c) => Math.abs(c.userData.l[AX[m.a]] - m.layer) < 0.01);
+      list.forEach((c) => pivot.attach(c));
+      anim = { m, undo, start: now, dur, list };
+    }
+    function finish() {
+      pivot.rotation.set(0, 0, 0);
+      pivot.rotation[AX[anim.m.a]] = anim.m.d * Math.PI / 2;
+      pivot.updateMatrixWorld(true);
+      const mtx = new THREE.Matrix4();
+      for (const c of anim.list) {
+        cube.attach(c);
+        // Mantiqiy joyni ham xuddi shu burilish bilan yangilaymiz va 0.5 to'rga "yopishtiramiz"
+        const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...AX.map((_, i) => (i === anim.m.a ? 1 : 0))), anim.m.d * Math.PI / 2);
+        const l = c.userData.l.applyQuaternion(q);
+        l.set(Math.round(l.x * 2) / 2, Math.round(l.y * 2) / 2, Math.round(l.z * 2) / 2);
+        mtx.makeRotationFromQuaternion(c.quaternion);
+        const el = mtx.elements;
+        for (const idx of [0, 1, 2, 4, 5, 6, 8, 9, 10]) el[idx] = Math.round(el[idx]);
+        c.quaternion.setFromRotationMatrix(mtx);
+      }
+      pivot.rotation.set(0, 0, 0);
+      if (anim.undo) history.pop(); else history.push(anim.m);
+      anim = null;
+    }
+    function pick() {
+      const last = history[history.length - 1];
+      if (last && (history.length >= 7 || (history.length >= 3 && Math.random() < 0.25))) return { m: inv(last), undo: true };
+      for (;;) {
+        const m = { a: (Math.random() * 3) | 0, layer: ((Math.random() * N) | 0) - H, d: Math.random() < 0.5 ? 1 : -1 };
+        if (!last || !(last.a === m.a && last.layer === m.layer && last.d === -m.d)) return { m, undo: false };
+      }
+    }
 
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    let clock = 0;
-    const t0 = performance.now();
-    let last = t0;
     const ease = (cur, tgt, k) => cur + (tgt - cur) * k;
+    let last = performance.now();
+    const TAU = Math.PI * 2;
 
     function frame(now) {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const cw = Math.round(canvas.clientWidth * dpr), ch = Math.round(canvas.clientHeight * dpr);
-      if (cw && ch && (canvas.width !== cw || canvas.height !== ch)) { canvas.width = cw; canvas.height = ch; }
+      const t = now / 1000;
 
-      // Holat og'irliklari silliq o'zgaradi (keskin sakrash yo'q)
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const cw = canvas.clientWidth, ch = canvas.clientHeight;
+      if (cw && ch && (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr))) {
+        renderer.setPixelRatio(dpr);
+        renderer.setSize(cw, ch, false);
+        camera.aspect = cw / ch;
+        camera.updateProjectionMatrix();
+      }
+
       for (const k of Object.keys(st.w)) st.w[k] = ease(st.w[k], st.state === k ? 1 : 0, 1 - Math.exp(-dt * 4));
       const S = STATE[st.state];
-      st.speed = ease(st.speed, S.speed, 1 - Math.exp(-dt * 2.5));
+      const act = Math.min(1, st.w.thinking + st.w.working + st.w.speaking + st.w.listening);
 
-      // Daraja: tashqi impulslar (nutq/mikrofon) + holat foni; tez ko'tariladi, sekin tushadi
-      const think = st.state === "thinking" ? 0.08 * (0.5 + 0.5 * Math.sin(now / 300)) : 0;
-      const driven = now - st.driveAt < 160; // uzluksiz signal kelib turibdimi
+      // Daraja: nutq/mikrofon signali + holat foni
+      const think = st.state === "thinking" ? 0.06 * (0.5 + 0.5 * Math.sin(now / 300)) : 0;
+      const driven = now - st.driveAt < 160;
       const tgt = Math.max(st.target, S.base + think, driven ? st.drive : 0);
-      const fall = driven ? 14 : 5; // nutqda tez pasayish → puls aniq ko'rinadi
-      st.level = ease(st.level, tgt, tgt > st.level ? 1 - Math.exp(-dt * 26) : 1 - Math.exp(-dt * fall));
+      st.level = ease(st.level, tgt, tgt > st.level ? 1 - Math.exp(-dt * 26) : 1 - Math.exp(-dt * (driven ? 14 : 5)));
       st.target *= Math.exp(-dt * 9);
+      st.pop *= Math.exp(-dt * 7);
+      const L = Math.min(1, st.level);
 
-      const want = MOODS[st.state === "listening" ? "listening" : st.mood];
-      for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) st.col[i][k] = ease(st.col[i][k], want[i][k], 1 - Math.exp(-dt * 3));
+      // Ranglar (kayfiyat / tinglash) silliq o'zgaradi
+      const pal = MOODS[st.state === "listening" ? "listening" : st.mood];
+      for (let i = 0; i < 4; i++) {
+        targetCols[i].set(pal[i]);
+        stick[i].color.lerp(targetCols[i], 1 - Math.exp(-dt * 3));
+        stick[i].emissive.copy(stick[i].color);
+        // Kutishda — tekis logo (faqat emissive), faol holatda — haqiqiy 3D yorug'lik
+        stick[i].emissiveIntensity = 1 - 0.78 * act;
+        inner[i].color.copy(stick[i].color).lerp(WHITE, 0.45);
+        inner[i].emissive.copy(inner[i].color);
+      }
+      hemi.intensity = 1.1 * act * params.glow;
+      key.intensity = 1.6 * act * params.glow;
+      rim.intensity = 0.6 * act * params.glow;
+      for (const m of stick) m.roughness = 0.6 - 0.35 * Math.min(1, params.detail);
 
-      clock += dt * (reduce ? 0.08 : (st.speed + 0.6 * st.level) * params.speed);
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.uniform2f(U.uRes, canvas.width, canvas.height);
-      gl.uniform1f(U.uTime, clock);
-      gl.uniform1f(U.uReal, reduce ? 0 : (now - t0) / 1000);
-      gl.uniform1f(U.uLevel, Math.min(1, st.level));
-      gl.uniform1f(U.uThink, st.w.thinking);
-      gl.uniform1f(U.uWork, st.w.working);
-      gl.uniform1f(U.uSpeak, st.w.speaking);
-      gl.uniform1f(U.uListen, st.w.listening);
-      gl.uniform1f(U.uGlow, params.glow);
-      gl.uniform1f(U.uSwirl, params.swirl);
-      gl.uniform1f(U.uRimW, params.rimWidth);
-      gl.uniform1f(U.uDetail, params.detail);
-      gl.uniform3fv(U.uColA, st.col[0]);
-      gl.uniform3fv(U.uColB, st.col[1]);
-      gl.uniform3fv(U.uColC, st.col[2]);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      st.gap = ease(st.gap, S.gap * params.rimWidth + 0.08 * L * st.w.speaking, 1 - Math.exp(-dt * 6));
+
+      // ---- burilishlarni rejalash ----
+      const speed = Math.max(0.2, params.speed) * (st.mood === "excited" ? 1.35 : st.mood === "concerned" ? 0.8 : 1);
+      if (anim && now - anim.start >= anim.dur) { finish(); nextAt = now + (S.every ? S.every / speed : 60); }
+      if (!anim && !reduce && now >= nextAt) {
+        if (S.every) { const { m, undo } = pick(); begin(m, undo, S.dur / speed, now); }
+        else if (history.length) begin(inv(history[history.length - 1]), true, S.dur / speed, now);
+      }
+      if (anim) {
+        const p = easeIO(Math.min(1, (now - anim.start) / anim.dur));
+        pivot.rotation.set(0, 0, 0);
+        pivot.rotation[AX[anim.m.a]] = anim.m.d * (Math.PI / 2) * p;
+      }
+
+      // ---- kubchalar joyi: oraliq + nutq "nafasi" + tinglash to'lqini ----
+      const sp = 1 + st.gap;
+      for (const c of cubies) {
+        const l = c.userData.l;
+        let f = sp;
+        if (!reduce) {
+          const r = l.length();
+          f += st.w.speaking * L * (0.06 + 0.16 * (0.5 + 0.5 * Math.sin(t * 9 + c.userData.seed * 3)));
+          f += st.w.listening * (0.035 + 0.06 * L) * Math.sin(t * 6 - r * 2.2);
+        }
+        // pivot ichidagi kubchalar ham shu lokal koordinatada (pivot markazda)
+        c.position.set(l.x * f, l.y * f, l.z * f);
+      }
+
+      // ---- butun kubning burchagi ----
+      // Kutish: to'g'ri qarash (logo). Faol: 3/4 ko'rinish; ishlashda sekin aylanadi
+      if (!reduce) st.spin += dt * 0.6 * st.w.working * params.swirl;
+      if (st.w.working < 0.05) st.spin = ease(st.spin, Math.round(st.spin / TAU) * TAU, 1 - Math.exp(-dt * 2));
+      const sway = reduce ? 0 : 0.12 * Math.sin(t * 0.9) * (st.w.thinking + st.w.listening);
+      st.rx = ease(st.rx, 0.5 * act, 1 - Math.exp(-dt * 3));
+      st.ry = ease(st.ry, -0.62 * act, 1 - Math.exp(-dt * 3));
+      cube.rotation.set(st.rx + sway * 0.4, st.ry + st.spin + sway, 0);
+      // 3/4 ko'rinishda kub kattaroq ko'rinadi — kichraytiramiz (canvas'dan chiqib ketmasin)
+      const s = (1 - 0.36 * act) * (1 + 0.06 * L * st.w.speaking + 0.07 * st.pop);
+      cube.scale.setScalar(s);
+
+      renderer.render(scene, camera);
       if (!stopped) raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);
@@ -236,3 +261,121 @@ void main(){
   }
   return { mount, DEFAULTS, MOODS: Object.keys(MOODS).filter((m) => m !== "listening"), STATES: Object.keys(STATE) };
 })();
+
+/* ---------- Rive avatari (client/public/avatar.riv) + zaxira ----------
+ Dizayner Rive'da avatar.riv tayyorlaganda ilova uni avtomatik ishlatadi (spec: docs/rive-avatar.md).
+ Fayl bo'lmasa yoki yuklanmasa — 3D kub (CubeAvatar). API bir xil, shuning uchun App.jsx, speech.js va
+ avatar-lab o'zgarmaydi. Canvas'da faqat bitta kontekst bo'lishi mumkin (2D yoki WebGL), shu sabab
+ avval fayl borligini tekshiramiz, keyin qaysi avatarni ishga tushirishni hal qilamiz. */
+const RIVE_STATES = { idle: 0, thinking: 1, working: 2, speaking: 3, listening: 4 };
+const RIVE_MOODS = { calm: 0, happy: 1, excited: 2, concerned: 3 };
+
+async function riveFileUrl() {
+  // Sinov uchun (faqat dev): ?riv=https://... bilan boshqa .riv faylni ochish mumkin
+  const override = import.meta.env.DEV ? new URLSearchParams(location.search).get("riv") : null;
+  const url = override || "/avatar.riv";
+  try {
+    const r = await fetch(url, { method: override ? "GET" : "HEAD", cache: "no-store" });
+    const type = r.headers.get("content-type") || "";
+    return r.ok && !type.includes("text/html") ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function mountRive(canvas, src, initial, onFail) {
+  const st = { state: "idle", mood: "calm", level: 0, target: 0, drive: 0, driveAt: 0 };
+  const params = { ...CubeAvatar.DEFAULTS, ...(initial || {}) };
+  let rive = null, inputs = {}, raf = 0, stopped = false, sent = -1;
+  canvas.dataset.state = "idle";
+
+  const send = () => {
+    if (inputs.state) inputs.state.value = RIVE_STATES[st.state];
+    if (inputs.mood) inputs.mood.value = RIVE_MOODS[st.mood] ?? 0;
+  };
+  (async () => {
+    try {
+      const { Rive, Layout, Fit, Alignment, RuntimeLoader } = await import("@rive-app/canvas");
+      const wasm = (await import("@rive-app/canvas/rive.wasm?url")).default;
+      RuntimeLoader.setWasmUrl(wasm); // WASM o'zimizdan — tashqi CDN kerak emas
+      if (stopped) return;
+      rive = new Rive({
+        src, canvas, autoplay: true, stateMachines: "Avatar", // asosiy (default) artboard ishlatiladi
+        layout: new Layout({ fit: Fit.Contain, alignment: Alignment.Center }),
+        onLoad: () => {
+          rive.resizeDrawingSurfaceToCanvas();
+          for (const i of rive.stateMachineInputs("Avatar") || []) inputs[i.name] = i;
+          send();
+        },
+        onLoadError: () => { if (!stopped) onFail(true); },
+      });
+    } catch {
+      if (!stopped) onFail(!!rive);
+    }
+  })();
+
+  // Ovoz darajasi: nutq/mikrofon signali tez ko'tariladi, sekin tushadi → "level" (0..100)
+  let last = performance.now();
+  const loop = (now) => {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    const driven = now - st.driveAt < 160;
+    const tgt = Math.max(st.target, driven ? st.drive : 0);
+    st.level += (tgt - st.level) * (tgt > st.level ? 1 - Math.exp(-dt * 26) : 1 - Math.exp(-dt * (driven ? 14 : 5)));
+    st.target *= Math.exp(-dt * 9);
+    const v = Math.round(Math.min(1, st.level) * 100);
+    if (inputs.level && v !== sent) { inputs.level.value = v; sent = v; }
+    if (!stopped) raf = requestAnimationFrame(loop);
+  };
+  raf = requestAnimationFrame(loop);
+
+  return {
+    setLevel(v) { const x = Math.max(0, Math.min(1, v)) * params.response; st.target = Math.max(st.target, x); inputs.pulse?.fire?.(); },
+    drive(v) { st.drive = Math.max(0, Math.min(1, v)) * params.response; st.driveAt = performance.now(); },
+    setState(s) { if (s in RIVE_STATES) { st.state = s; canvas.dataset.state = s; send(); } },
+    setMood(m) { if (m in RIVE_MOODS) { st.mood = m; send(); } },
+    setParams(p) { Object.assign(params, p); },
+    getParams() { return { ...params }; },
+    get debug() { return { state: st.state, mood: st.mood, level: +st.level.toFixed(3), weights: {}, rive: !!rive, inputs: Object.keys(inputs) }; },
+    destroy() { stopped = true; cancelAnimationFrame(raf); try { rive?.cleanup(); } catch { /* */ } },
+  };
+}
+
+/** Ilova shu obyektni ishlatadi: avatar.riv bo'lsa — Rive, bo'lmasa — 3D kub. */
+export const OsonAvatar = {
+  ...CubeAvatar,
+  mount(canvas, initial) {
+    // Haqiqiy avatar tayyor bo'lguncha chaqiruvlarni yozib boramiz, keyin unga o'tkazamiz
+    let impl = null, destroyed = false;
+    const pending = { state: "idle", mood: "calm", params: null };
+    const useCube = () => {
+      if (destroyed) return;
+      impl = CubeAvatar.mount(canvas, initial);
+      if (pending.params) impl.setParams(pending.params);
+      impl.setMood(pending.mood);
+      impl.setState(pending.state);
+    };
+    riveFileUrl().then((src) => {
+      if (destroyed) return;
+      if (!src) return useCube();
+      impl = mountRive(canvas, src, initial, (contextTaken) => {
+        impl?.destroy();
+        // Rive canvas'ni egallab bo'lgan bo'lsa, unda WebGL ochib bo'lmaydi — statik logo ko'rsatamiz
+        if (contextTaken) { canvas.classList.add("no-webgl"); impl = null; } else useCube();
+      });
+      impl.setMood(pending.mood);
+      impl.setState(pending.state);
+    });
+    canvas.dataset.state = "idle";
+    return {
+      setLevel: (v) => impl?.setLevel(v),
+      drive: (v) => impl?.drive(v),
+      setState: (s) => { pending.state = s; canvas.dataset.state = s; impl?.setState(s); },
+      setMood: (m) => { pending.mood = m; impl?.setMood(m); },
+      setParams: (p) => { pending.params = { ...(pending.params || {}), ...p }; impl?.setParams(p); },
+      getParams: () => impl?.getParams() || { ...CubeAvatar.DEFAULTS, ...(initial || {}), ...(pending.params || {}) },
+      get debug() { return impl?.debug || { state: pending.state, mood: pending.mood, level: 0, weights: {} }; },
+      destroy: () => { destroyed = true; impl?.destroy(); },
+    };
+  },
+};

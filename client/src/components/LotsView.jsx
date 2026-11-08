@@ -34,8 +34,8 @@ export default function LotsView({ active, regions, lots, onOpenLot }) {
             <button className="card" key={`${l.id}_${i}`} onClick={() => onOpenLot(l.id)}>
               <span className="ico">{l.category.icon}</span>
               <div className="body">
-                <div className="t">{l.product}</div>
-                <div className="s">{l.seller || "Sotuvchi ko'rsatilmagan"} · 📍 {l.region}</div>
+                <div className="t" title={l.product}>{l.productUz || l.product}</div>
+                <div className="s">{l.sellerUz || l.seller || "Sotuvchi ko'rsatilmagan"} · 📍 {l.regionUz || l.region}</div>
                 <div className="p"><b>{l.perTonne != null ? som(l.perTonne, { short: true }) + " / tonna" : som(l.perUnit, { short: true }) + " / " + l.unit}</b><span className="hint">1 lot = {qty(l.qty)} {l.unit}</span></div>
                 {l.everyday ? <div className="s">{l.everyday.label} ≈ {som(l.everyday.price)}</div> : null}
               </div>

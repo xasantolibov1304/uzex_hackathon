@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <title>Cube Lab · UZEX 2.0</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" />
+  <link rel="stylesheet" href="/src/cubelab/cubelab.css" />
+</head>
+<body>
+  <div class="glow" aria-hidden="true"></div>
+  <canvas id="cube" aria-label="UZEX 2.0 agent avatari — 3D kub"></canvas>
+
+  <header class="bar">
+    <a class="back" href="/">← Ilovaga qaytish</a>
+    <div class="title"><img src="/logo.svg" alt="" width="22" height="22" /> Cube Lab</div>
+    <span class="hint">Avatar g'oyasi · alohida sahifa</span>
+  </header>
+
+  <div class="panel">
+    <div class="seg" id="states">
+      <button data-s="idle" class="active">Kutish</button>
+      <button data-s="thinking">O'ylash</button>
+      <button data-s="working">Ishlash</button>
+      <button data-s="speaking">Gapirish</button>
+      <button data-s="listening">Tinglash</button>
+    </div>
+    <label class="sl">Ajralish <input type="range" id="spread" min="0" max="2" step="0.05" value="1" /></label>
+    <label class="sl">Nur <input type="range" id="light" min="0" max="2" step="0.05" value="1" /></label>
+  </div>
+  <script type="module" src="/src/cubelab/main.js"></script>
+</body>
+</html>

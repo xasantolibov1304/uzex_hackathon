@@ -8,10 +8,10 @@ const MOODS = { calm: "Xotirjam", happy: "Xursand", excited: "Hayajonli", concer
 const SIZES = { idle: 180, thinking: 260, working: 260, speaking: 280, listening: 260 };
 const TUNE = [
   ["speed", "Tezlik", 0.2, 3, 0.05],
-  ["glow", "Yorqinlik", 0.3, 2.5, 0.05],
-  ["swirl", "Aylanish", 0, 3, 0.05],
-  ["rimWidth", "Halqa qalinligi", 0.3, 3, 0.05],
-  ["detail", "Detallar", 0, 2, 0.05],
+  ["glow", "Soya", 0.3, 2.5, 0.05],
+  ["swirl", "Burilishlar soni", 0, 3, 0.05],
+  ["rimWidth", "Kataklar oralig'i", 0.3, 3, 0.05],
+  ["detail", "Yaltiroqlik", 0, 2, 0.05],
   ["response", "Ovozga sezgirlik", 0.2, 2, 0.05],
 ];
 const DEFAULT_TEXT = "Assalomu alaykum! Toshkent viloyatidan 20 tonna sement topdim. Jami summa 12 million 100 ming so'm. Tasdiqlash tugmasini bosing.";

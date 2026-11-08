@@ -9,7 +9,7 @@ function Spark({ points, w = 160, h = 34 }) {
   if (!points?.length) return null;
   const min = Math.min(...points), max = Math.max(...points), span = max - min || 1;
   const d = points.map((p, i) => `${i ? "L" : "M"}${((i / (points.length - 1 || 1)) * w).toFixed(1)},${(h - 3 - ((p - min) / span) * (h - 6)).toFixed(1)}`).join("");
-  const c = points.at(-1) > points[0] ? "var(--up)" : points.at(-1) < points[0] ? "var(--down)" : "#7a7aff";
+  const c = points.at(-1) > points[0] ? "var(--up)" : points.at(-1) < points[0] ? "var(--down)" : "var(--blue)";
   return <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"><path d={d} fill="none" stroke={c} strokeWidth="2" vectorEffect="non-scaling-stroke" /></svg>;
 }
 
