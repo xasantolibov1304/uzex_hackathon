@@ -17,7 +17,7 @@ import { ApplicationModal, LotModal, PriceModal } from "./components/Modals.jsx"
 
 const SESSION = sessionId();
 const TABS = [["agent", "Agent"], ["prices", "Narxlar"], ["lots", "Sotuvda"], ["orders", "Buyurtmalar"]];
-const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), forms: [...m.forms] });
+const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), forms: [...m.forms], charts: [...(m.charts || [])] });
 
 export default function App() {
   const [cfg, setCfg, cfgRef] = useLiveState({ aiEnabled: false, categories: [], regions: [] });
@@ -120,7 +120,7 @@ export default function App() {
     setTaskText("");
     const tt = () => tr(langRef.current);
     const n = ++seq.current;
-    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, collapsed: false, steps: [], lots: null, forms: [], orderId: null, replyHtml: "" };
+    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, collapsed: false, steps: [], lots: null, forms: [], charts: [], orderId: null, replyHtml: "" };
     runsRef.current.set(run.id, run);
     setFeed((f) => [...f, ...(hidden ? [] : [{ kind: "user", id: `u${n}`, text }]), snapshot(run)]);
     const commit = () => { const snap = snapshot(run); setFeed((f) => f.map((it) => (it.id === run.id ? snap : it))); };
@@ -199,12 +199,15 @@ export default function App() {
           await sleep(GAP);
           break;
         }
-        case "lots":
-          run.lots = ev.items;
+        case "lots": {
+          // Bir nechta qidiruv (masalan, eng arzon + eng qimmat) bo'lsa — takliflar qo'shiladi, takrorlar tashlanadi
+          const seen = new Set((run.lots || []).map((l) => l.lot_id));
+          run.lots = [...(run.lots || []), ...ev.items.filter((l) => !seen.has(l.lot_id))];
           commit();
           scrollFeed();
           await sleep(500);
           break;
+        }
         case "order":
           await closeThink();
           setOrdersById((m) => ({ ...m, [ev.order.id]: ev.order }));
@@ -217,6 +220,13 @@ export default function App() {
           break;
         case "profile":
           if (tabRef.current === "orders") loadProfile();
+          break;
+        case "chart":
+          await closeThink();
+          run.charts.push(ev.chart);
+          commit();
+          scrollFeed();
+          await sleep(600);
           break;
         case "form":
           await closeThink();

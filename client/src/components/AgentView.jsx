@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { som } from "../lib/format.js";
+import ComparisonCard from "./ComparisonCard.jsx";
 import FormCard from "./FormCard.jsx";
 import OrderCard from "./OrderCard.jsx";
 import PriceCards from "./PriceCards.jsx";
@@ -32,6 +33,9 @@ const Run = memo(function Run({ run, order, lang, ctx }) {
           </button>
         ))}
       </div>
+      {(run.charts || []).map((c) => (
+        <ComparisonCard key={c.id} chart={c} lang={lang} onOpenLot={ctx.openLot} />
+      ))}
       {run.forms.map((f, i) => (
         <FormCard key={`${f.id}_${i}`} form={f} isBusy={ctx.isBusy} toast={ctx.toast} onProfileSaved={ctx.onProfileSaved} sendTask={ctx.sendTask} />
       ))}

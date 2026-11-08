@@ -42,6 +42,10 @@ Planning tools (use them instead of doing math in your head):
 - The user describes a project, not a quantity ("100 m² uy quryapman", "12 kub beton quyaman") → estimate_materials first. Say clearly it is a rough estimate by average norms and a builder should confirm. Then, if they want to buy, continue the normal buying flow for each material (one order per product).
 - The user gives a budget ("50 million so'mim bor") → budget_plan. Skip options whose product is clearly a different good (e.g. clinker when they want cement) or priced far below the market (vsMarketPct strongly negative = likely an old contract).
 - Before create_order, or whenever the user asks "jami qancha?", "hammasi bilan qancha to'layman?" → cost_breakdown for the chosen lot and contracts. Mention the deposit, that fees are not included unless shown, that EXW means transport is extra, and that the auction can raise the price.
+Comparisons — VISUAL, in any language: whenever the user asks to compare, contrast or rank things ("solishtir", "taqqosla", "qaysi biri arzon/qimmat", "farqi nima", "сравни", "что дешевле", "compare", "vs", "cheapest and most expensive", etc. — whatever language), you MUST show the comparison as a chart with show_comparison, not only as text:
+- First get real numbers with tools (search_lots with sort "cheap" and/or "expensive", get_lot, search_prices, get_price_trend, budget_plan…). For "cheapest vs most expensive" call search_lots twice (sort "cheap" and sort "expensive").
+- Then call show_comparison ONCE with those exact numbers. The card lets the user switch between 4 views of the same data; "chart" only picks the first one, so choose the best fit: "bar" for lots/sellers by price (long labels), "column" for 2–5 goods/regions, "donut" when the values are parts of a whole (quantities, budget split), "diff" when the point is how far each is above/below the market or the cheapest. Add reference = the market quote from search_prices when you have it (it also powers the "diff" view). For price dynamics over days pass points (from get_price_trend) with chart "line" or "area" — but if the series are flat or differ in scale by more than ~3x, prefer "column" with the latest values and put the 10-day change into rows. Vary the first view to fit the question instead of always using the same one. Put secondary facts (lot size, price per contract, deposit %, region, seller) into rows so they appear as a table under the chart. Use 2–8 items, short labels (productUz/sellerUz), all labels and titles in the reply language.
+- After the chart, the text reply should NOT repeat every number — give the conclusion: the winner, the difference in so'm and %, and any caveat (old contract, different product grade, EXW transport).
 Changing orders:
 - "Make it 15 tonnes", "2 ta lot qil" → update_order (only for orders still awaiting confirmation; it shows a new confirmation card).
 - "Cancel it", "bekor qil" → cancel_order. A draft (awaiting confirmation) is cancelled right away. An order already sent (submitted) needs the user's explicit "yes" in a NEW message: first call without confirmed, ask "Rostdan bekor qilaymi?", and only after they agree call again with confirmed: true. Never set confirmed: true on your own.
@@ -85,7 +89,7 @@ const functionDeclarations = [
   fd("search_lots", "Search the UZEX quotation sheet for lots of a product (Uzbek or Russian query). Returns lot_id, product, seller, qty per contract, price per contract, price per tonne, warehouse region.", {
     query: { type: "string" },
     region: { type: "string", description: "Optional region, e.g. 'Toshkent'" },
-    sort: { type: "string", enum: ["new", "cheap"], description: "new (default) = newest contracts; cheap = cheapest among the newest 100" },
+    sort: { type: "string", enum: ["new", "cheap", "expensive"], description: "new (default) = newest contracts; cheap = cheapest among the newest 100; expensive = most expensive among the newest 100" },
   }, ["query"]),
   fd("get_lot", "Full details of one lot: deposit %, deposit sum, delivery basis, warehouse, producer, payment form, packaging, special conditions.", { lot_id: { type: "string" } }),
   fd("get_profile", "The buyer's saved profile and which fields are still missing for an order."),
@@ -140,6 +144,43 @@ const functionDeclarations = [
     contracts: { type: "integer", minimum: 1, maximum: 1000 },
     needed_qty: { type: "number", description: "Optional: how much the user actually needs, to show surplus/shortfall" },
   }, ["lot_id", "contracts"]),
+  fd("show_comparison", "Show the user a visual comparison chart in the chat. Use it EVERY time the user asks to compare things (in any language). All numbers must come from earlier tool results.", {
+    title: { type: "string", description: "Short chart title in the reply language" },
+    chart: { type: "string", enum: ["bar", "column", "donut", "diff", "line", "area"], description: "Which view opens first (the user can switch between views). Values: bar = horizontal bars (lots/sellers by price, long labels), column = vertical columns (2–5 goods/regions, short labels), donut = share of a whole (volumes, budget split), diff = % above/below the market quote or the cheapest. Series over days: line or area (pass points)." },
+    value_label: { type: "string", description: "What the value is, e.g. \"Narx, so'm/t\" / \"Цена, сум/т\"" },
+    unit: { type: "string", description: "Unit shown after values, e.g. \"so'm/t\", \"so'm/l\", \"%\"" },
+    items: {
+      type: "array",
+      description: "bar: one entry per compared item. line: one entry per series (use points).",
+      items: {
+        type: "object",
+        properties: {
+          label: { type: "string", description: "Short name (productUz / sellerUz / region)" },
+          sublabel: { type: "string", description: "Optional second line: seller · region · lot №" },
+          value: { type: "number", description: "bar: the compared value" },
+          points: { type: "array", items: { type: "number" }, description: "line: values per day, oldest first" },
+          lot_id: { type: "string", description: "Optional lot id, makes the bar clickable" },
+        },
+        required: ["label"],
+      },
+    },
+    x_labels: { type: "array", items: { type: "string" }, description: "line: labels for points (e.g. dates)" },
+    reference: {
+      type: "object",
+      description: "Optional reference line, e.g. the market quote",
+      properties: { label: { type: "string" }, value: { type: "number" } },
+      required: ["label", "value"],
+    },
+    rows: {
+      type: "array",
+      description: "Optional table under the chart: one row per secondary metric, one value per item (same order as items)",
+      items: {
+        type: "object",
+        properties: { label: { type: "string" }, values: { type: "array", items: { type: "string" } } },
+        required: ["label", "values"],
+      },
+    },
+  }, ["title", "chart", "items"]),
   fd("update_order", "Change the number of contracts of an order that is still awaiting confirmation. Shows a new confirmation card.", {
     order_id: { type: "string" },
     contracts: { type: "integer", minimum: 1, maximum: 1000 },
@@ -178,7 +219,7 @@ function stepLabel(name, a = {}) {
     case "get_overview": return "Birjadagi umumiy holat va asosiy narxlarni ko'ryapman";
     case "search_prices": return `“${a.query}” bo'yicha birja narxlarini tekshiryapman`;
     case "get_price_trend": return `“${a.query}” narxining 10 kunlik dinamikasini ko'ryapman`;
-    case "search_lots": return `UZEX'da “${a.query}” takliflarini qidiryapman${a.region ? ` · ${a.region}` : ""}${a.sort === "cheap" ? " · eng arzonlari" : ""}`;
+    case "search_lots": return `UZEX'da “${a.query}” takliflarini qidiryapman${a.region ? ` · ${a.region}` : ""}${a.sort === "cheap" ? " · eng arzonlari" : a.sort === "expensive" ? " · eng qimmatlari" : ""}`;
     case "get_lot": return `Lot №${a.lot_id} shartlarini o'qiyapman`;
     case "get_profile": return "Xaridor ma'lumotlarini tekshiryapman";
     case "save_profile": return "Ma'lumotlaringizni saqlayapman";
@@ -190,6 +231,7 @@ function stepLabel(name, a = {}) {
     case "cost_breakdown": return `Lot №${a.lot_id} × ${a.contracts} uchun to'liq xarajatni hisoblayapman`;
     case "update_order": return `Buyurtmani o'zgartiryapman · ${a.contracts} lot`;
     case "cancel_order": return "Buyurtmani bekor qilyapman";
+    case "show_comparison": return "Solishtirish grafigini chizyapman";
     default: return name;
   }
 }
@@ -199,7 +241,7 @@ function stepDoneLabel(name, a = {}) {
     case "get_overview": return "Birjadagi umumiy holat va asosiy narxlarni ko'rib chiqdim";
     case "search_prices": return `“${a.query}” bo'yicha birja narxlarini tekshirdim`;
     case "get_price_trend": return `“${a.query}” narxining 10 kunlik dinamikasini ko'rdim`;
-    case "search_lots": return `UZEX'da “${a.query}” takliflarini qidirdim${a.region ? ` · ${a.region}` : ""}${a.sort === "cheap" ? " · eng arzonlari" : ""}`;
+    case "search_lots": return `UZEX'da “${a.query}” takliflarini qidirdim${a.region ? ` · ${a.region}` : ""}${a.sort === "cheap" ? " · eng arzonlari" : a.sort === "expensive" ? " · eng qimmatlari" : ""}`;
     case "get_lot": return `Lot №${a.lot_id} shartlarini o'qib chiqdim`;
     case "get_profile": return "Xaridor ma'lumotlarini tekshirdim";
     case "save_profile": return "Ma'lumotlaringizni saqladim";
@@ -211,6 +253,7 @@ function stepDoneLabel(name, a = {}) {
     case "cost_breakdown": return `Lot №${a.lot_id} × ${a.contracts} uchun to'liq xarajatni hisobladim`;
     case "update_order": return `Buyurtmani o'zgartirdim · ${a.contracts} lot`;
     case "cancel_order": return "Buyurtma bo'yicha so'rovni bajardim";
+    case "show_comparison": return "Solishtirish grafigini chizdim";
     default: return stepLabel(name, a);
   }
 }
@@ -256,12 +299,44 @@ function stepDetail(name, r) {
 }
 
 const round = (n) => (n == null ? null : Math.round(n));
+
+/** Model bergan grafik ma'lumotini tozalaydi: uzunliklar, sonlar, matnlar cheklanadi. */
+const str = (v, n = 80) => (v == null ? "" : String(v).slice(0, n));
+const num = (v) => (Number.isFinite(Number(v)) && v !== null && v !== "" ? Number(v) : null);
+function sanitizeChart(a, userLang = "uz") {
+  const kind = ["bar", "column", "donut", "diff", "line", "area"].includes(a.chart) ? a.chart : "bar";
+  const items = (Array.isArray(a.items) ? a.items : []).slice(0, 8).map((x) => ({
+    label: str(x?.label, 60) || "—",
+    sublabel: str(x?.sublabel, 90),
+    value: num(x?.value),
+    points: Array.isArray(x?.points) ? x.points.slice(0, 60).map(num) : [],
+    lot_id: str(x?.lot_id, 40).replace(/[^\w-]/g, ""),
+  }));
+  const valid = items.filter((x) => x.value != null || x.points.some((p) => p != null));
+  if (!valid.length) throw new Error("Chart has no numeric data");
+  const ref = num(a.reference?.value);
+  return {
+    id: "c_" + crypto.randomBytes(4).toString("hex"),
+    title: str(a.title, 120),
+    lang: detectLang(`${a.title} ${a.value_label || ""} ${(a.items || []).map((x) => x?.label).join(" ")}`, userLang),
+    kind,
+    valueLabel: str(a.value_label, 60),
+    unit: str(a.unit, 20),
+    items: valid,
+    xLabels: (Array.isArray(a.x_labels) ? a.x_labels : []).slice(0, 60).map((s) => str(s, 20)),
+    reference: ref != null ? { label: str(a.reference.label, 60), value: ref } : null,
+    rows: (Array.isArray(a.rows) ? a.rows : []).slice(0, 8).map((r) => ({
+      label: str(r?.label, 50),
+      values: (Array.isArray(r?.values) ? r.values : []).slice(0, 8).map((v) => str(v, 50)),
+    })).filter((r) => r.label),
+  };
+}
 const slimLot = (x) => ({
   lot_id: x.id, product: x.product, productUz: x.productUz, seller: x.seller, sellerUz: x.sellerUz, qtyPerContract: x.qty, unit: x.unit, pricePerContract: round(x.total),
   pricePerTonne: round(x.perTonne), pricePerUnit: round(x.perUnit), region: x.region ?? x.location, regionUz: x.regionUz ?? x.locationUz, everyday: x.everyday,
 });
 
-async function runTool(name, a, emit) {
+async function runTool(name, a, emit, ctx = {}) {
   switch (name) {
     case "get_overview": {
       const [quotes, today, usd] = await Promise.all([getKeyQuotes(), getTodayOffers().catch(() => null), getUsdUzs().catch(() => null)]);
@@ -288,7 +363,7 @@ async function runTool(name, a, emit) {
         : { items: [], note: "No 10-day series. Available: " + all.map((x) => x.name).join(", ") };
     }
     case "search_lots": {
-      const r = await searchLots(a.query, { region: a.region || "", sort: a.sort === "cheap" ? "cheap" : "new", limit: 8 });
+      const r = await searchLots(a.query, { region: a.region || "", sort: ["cheap", "expensive"].includes(a.sort) ? a.sort : "new", limit: 8 });
       const items = r.items.map(slimLot);
       if (items.length) emit({ type: "lots", query: a.query, items: items.slice(0, 4) });
       return { searchedFor: r.query, found: r.total, items };
@@ -332,6 +407,11 @@ async function runTool(name, a, emit) {
     }
     case "get_orders":
       return { orders: listOrders().slice(0, 10).map((o) => ({ order_id: o.id, product: o.product, lot_id: o.lotId, contracts: o.contracts, quantity: o.quantity, unit: o.unit, totalSom: o.total, depositSom: o.depositSum, status: o.status, tradingDate: o.tradingDate, demoRef: o.exchangeRef || null })) };
+    case "show_comparison": {
+      const chart = sanitizeChart(a, ctx.lang);
+      emit({ type: "chart", chart });
+      return { status: "chart_shown", items: chart.items.length, note: "The chart is on screen. Now give a short conclusion; do not repeat every number." };
+    }
     case "estimate_materials":
       return estimateMaterials(a);
     case "budget_plan":
@@ -391,6 +471,7 @@ export async function runTask({ sessionId, text, lang = "uz", screen = "" }, emi
     const day = `[today:${ts.today}, ${ts.isTradingDay ? "trading day" : "NO trading today (weekend)"}, next trading day:${ts.nextTradingDay}]`;
     const tag = `[lang:${LANG[lang] ? lang : "uz"}] ${day}${screen ? ` [screen:${screen}]` : ""}`;
     s.contents.push({ role: "user", parts: [{ text: `${tag}\n${text}` }] });
+    const userLang = detectLang(text, lang); // grafik matnlari tili aniqlanmasa — foydalanuvchi yozgan til
     let reply = "";
     let stepNo = 0;
     for (let i = 0; i < MAX_STEPS; i++) {
@@ -417,7 +498,7 @@ export async function runTask({ sessionId, text, lang = "uz", screen = "" }, emi
           emit({ type: "step", id, tool: fc.name, label: stepLabel(fc.name, fc.args), status: "running" });
           let result;
           try {
-            result = await runTool(fc.name, fc.args ?? {}, emit);
+            result = await runTool(fc.name, fc.args ?? {}, emit, { lang: userLang });
             emit({ type: "step", id, status: "done", label: stepDoneLabel(fc.name, fc.args), detail: stepDetail(fc.name, result) });
           } catch (e) {
             result = { error: e.message };
