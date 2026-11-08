@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Vaqt testi</title>
+  <style>
+    :root {
+      --bg: #07080c; --panel: #10121a; --line: #1f2330; --text: #e8eaf2; --muted: #8a90a6;
+      --accent: #3d6bf5; --accent2: #22b07d; --live: #f5b13d; --danger: #ff6b6b;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 28px; padding: 32px 16px; }
+    h1 { margin: 0; font-size: 20px; font-weight: 600; }
+    .hint { margin: -16px 0 0; color: var(--muted); font-size: 13px; text-align: center; max-width: 520px; }
+    [hidden] { display: none !important; }
+
+    /* login */
+    form.login { display: flex; gap: 10px; width: min(420px, 100%); }
+    form.login input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+      background: var(--panel); color: var(--text); font: inherit; outline: none; }
+    form.login input:focus { border-color: var(--accent); }
+    .btn { padding: 12px 18px; border-radius: 12px; border: 0; background: var(--accent); color: #fff; font: inherit;
+      font-weight: 600; cursor: pointer; }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .btn.ghost { background: none; border: 1px solid var(--line); color: var(--text); }
+    .btn.ghost:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+
+    /* kategoriya tanlash (segment) */
+    .seg-ctl { display: inline-flex; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); flex-wrap: wrap; }
+    .seg-ctl button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px; padding: 8px 14px;
+      border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .seg-ctl button:hover { color: var(--text); }
+    .seg-ctl button[aria-pressed="true"] { background: #1c2133; color: var(--text); }
+    .seg-ctl .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .login-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(460px, 100%); }
+    .login-wrap .lbl { color: var(--muted); font-size: 13px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+      border: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    .filters { width: min(780px, 100%); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: -14px; }
+    .filters .lbl { color: var(--muted); font-size: 13px; }
+
+    /* sessiya */
+    .who { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .who b { font-weight: 600; }
+    .who .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); display: inline-block; margin-right: 6px; }
+    .buttons { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .site { min-width: 220px; padding: 16px 22px; border: 1px solid var(--line); border-radius: 14px;
+      background: var(--panel); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 4px; transition: border-color .2s, transform .1s; }
+    .site:hover:not(:disabled) { border-color: var(--accent); }
+    .site:active:not(:disabled) { transform: scale(.98); }
+    .site:disabled { cursor: default; }
+    .site small { color: var(--muted); font-weight: 400; font-size: 12px; }
+    .site .clock { font-variant-numeric: tabular-nums; font-size: 22px; color: var(--muted); }
+    .site.running { border-color: var(--live); }
+    .site.running .clock { color: var(--live); }
+    .site.done { border-color: color-mix(in srgb, var(--accent2) 55%, var(--line)); }
+    .site.done .clock { color: var(--accent2); }
+    .err { color: var(--danger); font-size: 13px; min-height: 1.5em; margin: -14px 0 0; text-align: center; }
+
+    /* natijalar */
+    .card { width: min(780px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    .card h2 { margin: 0; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--line); }
+    .scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 11px 13px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 500; font-size: 12px; }
+    tr:last-child td { border-bottom: 0; }
+    td.time { font-variant-numeric: tabular-nums; font-weight: 600; }
+    td.muted, td.time.none { color: var(--muted); font-weight: 400; }
+    td.empty { color: var(--muted); text-align: center; padding: 26px 16px; }
+    tr.fresh td { animation: fresh 2s ease; }
+    @keyframes fresh { from { background: color-mix(in srgb, var(--accent2) 22%, transparent); } }
+    .foot { display: flex; justify-content: flex-end; padding: 8px 16px; border-top: 1px solid var(--line); }
+    .foot button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline; }
+    .foot button:hover { color: var(--text); }
+
+    /* statistika */
+    .stats { --s-app: #3987e5; --s-uzex: #d95926; --grid: #1c2030; --axis: #2a2f40; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+    .kpi { padding: 14px 16px; border-right: 1px solid var(--line); min-width: 0; }
+    .kpi:last-child { border-right: 0; }
+    .kpi .lbl { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .kpi .val { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .kpi .sub { color: var(--muted); font-size: 12px; }
+    .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+    .chart { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+    .chart:last-child { border-bottom: 0; }
+    .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+    .chart-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
+    .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .chart svg { display: block; width: 100%; overflow: visible; }
+    .chart svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+    .chart svg .hit { fill: transparent; cursor: default; }
+    .chart svg .col.on .hover-bg { fill: rgba(255,255,255,.04); }
+    .stats-empty { color: var(--muted); text-align: center; padding: 26px 16px; font-size: 14px; }
+    .tip { position: fixed; z-index: 10; pointer-events: none; background: #181b26; border: 1px solid var(--axis, #2a2f40);
+      border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.6; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      min-width: 160px; }
+    .tip b { font-weight: 600; display: block; margin-bottom: 2px; }
+    .tip .r { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+    .tip .r span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+    .tip .r span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    @media (max-width: 520px) {
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .kpi:nth-child(2) { border-right: 0; }
+      .kpi:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .buttons { width: 100%; flex-direction: column; }
+      .site { min-width: 0; width: 100%; }
+      th, td { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Vaqt testi</h1>
+
+    <!-- 1. Login -->
+    <section id="loginView" class="login-wrap" hidden>
+      <span class="lbl">1. Test kategoriyasini tanlang</span>
+      <div class="seg-ctl" id="catPick" role="group" aria-label="Test kategoriyasi"></div>
+      <span class="lbl">2. Ismingizni kiriting</span>
+      <form class="login" id="loginForm" autocomplete="off">
+        <input id="nameInput" maxlength="40" placeholder="Ism yoki ID" required />
+        <button class="btn" type="submit">Kirish</button>
+      </form>
+    </section>
+
+    <!-- 2. Sessiya: ikkita taymer -->
+    <section id="sessionView" hidden style="display:flex;flex-direction:column;align-items:center;gap:28px;width:100%">
+      <div class="who">
+        <span><span class="dot"></span><b id="userName"></b></span>
+        <span class="badge" id="catBadge"></span>
+        <button class="btn ghost" id="logoutBtn" type="button">Chiqish</button>
+      </div>
+      <p class="hint" style="margin:-12px 0 0" id="taskHint"></p>
+      <div class="buttons">
+        <button class="site" type="button" data-site="app">
+          Oson Birja
+          <small id="appUrl"></small>
+          <span class="clock" id="clock-app">00:00</span>
+        </button>
+        <button class="site" type="button" data-site="uzex">
+          UZEX
+          <small>uzex.uz</small>
+          <span class="clock" id="clock-uzex">00:00</span>
+        </button>
+      </div>
+      <p class="err" id="err"></p>
+    </section>
+
+    <!-- 3. Kategoriya filtri (statistika va jadval uchun) -->
+    <div class="filters">
+      <span class="lbl">Kategoriya bo'yicha ko'rsatish</span>
+      <div class="seg-ctl" id="catFilter" role="group" aria-label="Kategoriya filtri"></div>
+    </div>
+
+    <!-- Statistika (grafiklar) -->
+    <div class="card stats">
+      <h2>Statistika</h2>
+      <div id="statsBody"></div>
+    </div>
+    <div class="tip" id="tip" hidden></div>
+
+    <!-- 4. Barcha foydalanuvchilar natijalari -->
+    <div class="card">
+      <h2>Natijalar</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>#</th><th>Foydalanuvchi</th><th>Kategoriya</th><th>Oson Birja</th><th>UZEX</th><th>Farq</th><th>Sana</th></tr></thead>
+          <tbody id="results"></tbody>
+        </table>
+      </div>
+      <div class="foot"><button id="clearBtn" type="button">Jadvalni tozalash</button></div>
+    </div>
+  </main>
+
+  <script>
+    const SITES = {
+      app: { name: "Oson Birja", url: location.origin + "/" },
+      uzex: { name: "UZEX", url: "https://uzex.uz/" },
+    };
+    const SITE_IDS = Object.keys(SITES);
+    // Test kategoriyalari: foydalanuvchi mahsulotni qanday usulda topadi
+    const CATS = {
+      name:  { label: "Nom bo'yicha qidiruv", short: "Nom bo'yicha", icon: "🔤",
+               task: "Ikkala saytda mahsulotni NOMI bo'yicha qidirib toping (masalan, \"sement\"), topgach tabni yoping." },
+      price: { label: "Narx bo'yicha filtr", short: "Narx bo'yicha", icon: "💰",
+               task: "Ikkala saytda mahsulotni NARXI bo'yicha filtrlab toping (masalan, eng arzonini), topgach tabni yoping." },
+    };
+    const CAT_IDS = Object.keys(CATS);
+    const K_FILTER = "timeTest.filter";
+    let pickedCat = "name";   // login oynasida tanlangan kategoriya
+    let filterCat = (() => { try { const f = localStorage.getItem(K_FILTER); return f === "all" || CATS[f] ? f : "all"; } catch { return "all"; } })();
+    const K_SESSION = "timeTest.session";   // { user, loginAt, runs: { app: {start, end}, uzex: {...} } }
+    const K_RESULTS = "timeTest.results";   // [{ user, app: ms|null, uzex: ms|null, loginAt, logoutAt }]
+    const $ = (id) => document.getElementById(id);
+    $("appUrl").textContent = location.host;
+
+    const read = (k, fb) => { try { return JSON.parse(localStorage.getItem(k)) ?? fb; } catch { return fb; } };
+    const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+    let session = read(K_SESSION, null);
+    let results = read(K_RESULTS, []);
+    if (!Array.isArray(results)) results = [];
+    const wins = {};          // site -> ochilgan tab havolasi (faqat xotirada)
+    let freshIndex = -1;      // yangi qo'shilgan qatorni yoritish uchun
+    let autoLogoutTimer = null;
+
+    // Sahifa yangilansa, ochiq tab havolasi yo'qoladi — tugallanmagan o'lchovni bekor qilamiz (qayta o'lchash mumkin)
+    if (session) {
+      for (const s of SITE_IDS) if (session.runs[s] && !session.runs[s].end) delete session.runs[s];
+      write(K_SESSION, session);
+    }
+
+    const fmt = (ms) => {
+      if (ms == null) return "—";
+      const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      const p = (n) => String(n).padStart(2, "0");
+      return (h ? h + ":" : "") + p(m) + ":" + p(sec);
+    };
+    const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    const dur = (run, now = Date.now()) => (run ? (run.end || now) - run.start : null);
+
+    // ---------- login / logout ----------
+    $("loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const user = $("nameInput").value.trim();
+      if (!user) return;
+      session = { user, category: pickedCat, loginAt: Date.now(), runs: {} };
+      write(K_SESSION, session);
+      $("nameInput").value = "";
+      render();
+    });
+
+    function logout() {
+      if (!session) return;
+      clearTimeout(autoLogoutTimer); autoLogoutTimer = null;
+      const now = Date.now();
+      // ochiq qolgan taymerlar shu lahzada to'xtatiladi
+      for (const s of SITE_IDS) {
+        const r = session.runs[s];
+        if (r && !r.end) r.end = now;
+        delete wins[s];
+      }
+      const used = SITE_IDS.some((s) => session.runs[s]);
+      if (used) {
+        results.unshift({
+          user: session.user,
+          category: session.category || null,
+          app: dur(session.runs.app),
+          uzex: dur(session.runs.uzex),
+          loginAt: session.loginAt,
+          logoutAt: now,
+        });
+        write(K_RESULTS, results);
+        freshIndex = 0;
+      }
+      session = null;
+      write(K_SESSION, null);
+      $("err").textContent = "";
+      render();
+    }
+    $("logoutBtn").addEventListener("click", () => {
+      const running = session && SITE_IDS.some((s) => session.runs[s] && !session.runs[s].end);
+      if (running && !confirm("Taymer hali ishlayapti. Hozir to'xtatib chiqasizmi?")) return;
+      logout();
+    });
+
+    // ---------- taymerlar ----------
+    function openSite(site) {
+      if (!session) return;
+      $("err").textContent = "";
+      const run = session.runs[site];
+      if (run && run.end) return;                                       // bu sessiyada allaqachon o'lchangan
+      if (run && wins[site] && !wins[site].closed) { wins[site].focus(); return; } // ochiq — davom etadi
+      // noopener ishlatilmaydi: tab yopilganini (win.closed) kuzatish uchun oyna havolasi kerak
+      const win = window.open(SITES[site].url, "_blank");
+      if (!win) { $("err").textContent = "Brauzer yangi tabni blokladi. Pop-up'larga ruxsat bering."; return; }
+      wins[site] = win;
+      session.runs[site] = { start: Date.now(), end: null };
+      write(K_SESSION, session);
+      render();
+    }
+    document.querySelectorAll("[data-site]").forEach((b) => b.addEventListener("click", () => openSite(b.dataset.site)));
+
+    function tick() {
+      if (session) {
+        let changed = false;
+        for (const s of SITE_IDS) {
+          const r = session.runs[s];
+          if (r && !r.end && wins[s] && wins[s].closed) { r.end = Date.now(); delete wins[s]; changed = true; }
+        }
+        if (changed) write(K_SESSION, session);
+        // ikkala taymer tugadi → qisqa pauzadan so'ng avtomatik logout
+        if (!autoLogoutTimer && SITE_IDS.every((s) => session.runs[s] && session.runs[s].end)) {
+          autoLogoutTimer = setTimeout(logout, 1500);
+        }
+      }
+      renderTimers();
+    }
+
+    // ---------- chizish ----------
+    function renderTimers() {
+      if (!session) return;
+      const now = Date.now();
+      for (const s of SITE_IDS) {
+        const r = session.runs[s];
+        const btn = document.querySelector(`[data-site="${s}"]`);
+        $("clock-" + s).textContent = fmt(r ? dur(r, now) : 0);
+        btn.classList.toggle("running", Boolean(r && !r.end));
+        btn.classList.toggle("done", Boolean(r && r.end));
+        btn.disabled = Boolean(r && r.end);
+      }
+    }
+
+    const visible = () => (filterCat === "all" ? results : results.filter((r) => r.category === filterCat));
+    const catName = (c) => (CATS[c] ? `${CATS[c].icon} ${CATS[c].short}` : "—");
+
+    function renderCatControls() {
+      $("catPick").innerHTML = CAT_IDS.map((c) =>
+        `<button type="button" data-cat="${c}" aria-pressed="${c === pickedCat}">${CATS[c].icon} ${CATS[c].label}</button>`).join("");
+      const count = (c) => (c === "all" ? results.length : results.filter((r) => r.category === c).length);
+      $("catFilter").innerHTML = ["all", ...CAT_IDS].map((c) =>
+        `<button type="button" data-filter="${c}" aria-pressed="${c === filterCat}">${c === "all" ? "Hammasi" : CATS[c].short}` +
+        ` <span class="n">${count(c)}</span></button>`).join("");
+    }
+    $("catPick").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-cat]"); if (!b) return;
+      pickedCat = b.dataset.cat; renderCatControls(); $("nameInput").focus();
+    });
+    $("catFilter").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-filter]"); if (!b) return;
+      filterCat = b.dataset.filter; try { localStorage.setItem(K_FILTER, filterCat); } catch {}
+      renderResults();
+    });
+
+    function renderResults() {
+      renderCatControls();
+      const list = visible();
+      $("results").innerHTML = list.length
+        ? list.map((r, i) => {
+            const diff = r.app != null && r.uzex != null ? r.uzex - r.app : null;
+            const diffTxt = diff == null ? "—" : (diff >= 0 ? "Oson Birja tezroq: " : "UZEX tezroq: ") + fmt(Math.abs(diff));
+            const date = new Date(r.logoutAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+            return `<tr class="${r === results[freshIndex] ? "fresh" : ""}"><td>${list.length - i}</td><td>${esc(r.user)}</td>` +
+              `<td class="muted">${catName(r.category)}</td>` +
+              `<td class="time ${r.app == null ? "none" : ""}">${fmt(r.app)}</td>` +
+              `<td class="time ${r.uzex == null ? "none" : ""}">${fmt(r.uzex)}</td>` +
+              `<td class="muted">${diffTxt}</td><td class="muted">${date}</td></tr>`;
+          }).join("")
+        : `<tr><td class="empty" colspan="7">${results.length ? "Bu kategoriyada natija yo'q" : "Hali natija yo'q"}</td></tr>`;
+      freshIndex = -1;
+      renderStats();
+    }
+
+    // ---------- statistika ----------
+    const COLORS = { app: "#3987e5", uzex: "#d95926" };
+    const MAX_BARS = 12;
+    const NICE_SEC = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+    const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
+    // Tejash foizi sekinroq saytga nisbatan (ikki tomonga simmetrik, ±100% ichida): + → Oson Birja tezroq
+    const pct = (r) => { const slow = Math.max(r.app, r.uzex); return slow > 0 ? ((r.uzex - r.app) / slow) * 100 : 0; };
+    const pctTxt = (p) => (p >= 0 ? "+" : "−") + Math.abs(Math.round(p)) + "%";
+    const short = (t, n) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
+    // yuqori uchi 4px yumaloq, asosi tekis ustun (up=false — pastga qarab)
+    function bar(x, y0, w, h, up = true) {
+      if (h <= 0) return "";
+      const r = Math.min(4, w / 2, h);
+      if (up) { const y = y0 - h; return `M${x},${y0}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y0}Z`; }
+      const y = y0 + h; return `M${x},${y0}V${y - r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y - r}V${y0}Z`;
+    }
+
+    function renderStats() {
+      const body = $("statsBody");
+      const complete = (r) => r.app != null && r.uzex != null;
+      const done = visible().filter(complete);
+      if (!done.length) {
+        body.innerHTML = `<div class="stats-empty">${filterCat === "all" ? "" : `«${CATS[filterCat].label}» kategoriyasida: `}` +
+          `grafiklar uchun kamida bitta to'liq natija kerak (ikkala sayt ham o'lchangan bo'lsin).</div>`;
+        return;
+      }
+      // "Hammasi" tanlanganda: kategoriyalar bo'yicha o'rtacha vaqtlar (taqqoslash uchun)
+      const byCat = filterCat !== "all" ? [] : CAT_IDS.map((c) => {
+        const rs = results.filter((r) => r.category === c && complete(r));
+        return rs.length ? { user: CATS[c].short, app: avg(rs.map((r) => r.app)), uzex: avg(rs.map((r) => r.uzex)), n: rs.length } : null;
+      }).filter(Boolean);
+      const aApp = avg(done.map((r) => r.app)), aUzex = avg(done.map((r) => r.uzex));
+      const aPct = avg(done.map(pct));
+      const faster = done.filter((r) => r.app < r.uzex).length;
+      const sw = (s) => `<i class="sw" style="background:${COLORS[s]}"></i>`;
+      body.innerHTML = `
+        <div class="kpis">
+          <div class="kpi"><div class="lbl">Sessiyalar</div><div class="val">${done.length}</div><div class="sub">to'liq natija</div></div>
+          <div class="kpi"><div class="lbl">${sw("app")}O'rtacha · Oson Birja</div><div class="val">${fmt(aApp)}</div><div class="sub">daq:son</div></div>
+          <div class="kpi"><div class="lbl">${sw("uzex")}O'rtacha · UZEX</div><div class="val">${fmt(aUzex)}</div><div class="sub">daq:son</div></div>
+          <div class="kpi"><div class="lbl">O'rtacha tejash</div><div class="val">${pctTxt(aPct)}</div><div class="sub">${faster}/${done.length} da Oson Birja tezroq</div></div>
+        </div>
+        <div class="chart">
+          <div class="chart-head"><h3>Har bir foydalanuvchi sarflagan vaqt</h3>
+            <div class="legend"><span>${sw("app")}Oson Birja</span><span>${sw("uzex")}UZEX</span></div></div>
+          <div id="chartTime"></div>
+        </div>
+        <div class="chart">
+          <div class="chart-head"><h3>Qaysi sayt necha foiz tezroq</h3>
+            <div class="legend"><span>${sw("app")}Oson Birja tezroq</span><span>${sw("uzex")}UZEX tezroq</span></div></div>
+          <div id="chartPct"></div>
+        </div>
+        ${byCat.length ? `<div class="chart">
+          <div class="chart-head"><h3>Kategoriyalar bo'yicha o'rtacha vaqt</h3>
+            <div class="legend"><span>${sw("app")}Oson Birja</span><span>${sw("uzex")}UZEX</span></div></div>
+          <div id="chartCat"></div>
+        </div>` : ""}`;
+      const last = done.slice(0, MAX_BARS).reverse(); // eski → yangi, chapdan o'ngga
+      drawTimeChart($("chartTime"), last);
+      drawPctChart($("chartPct"), last);
+      if (byCat.length) drawTimeChart($("chartCat"), byCat, 180);
+    }
+
+    // Guruhlangan ustunlar: har sessiyada Oson Birja va UZEX vaqti
+    function drawTimeChart(el, data, H = 220) {
+      const W = Math.max(280, el.clientWidth), m = { t: 8, r: 4, b: 26, l: 44 };
+      const iw = W - m.l - m.r, ih = H - m.t - m.b;
+      const maxSec = Math.max(1, ...data.map((r) => Math.max(r.app, r.uzex) / 1000));
+      const step = NICE_SEC.find((s) => maxSec / s <= 4) || 7200;
+      const top = Math.ceil(maxSec / step) * step;
+      const y = (ms) => m.t + ih - (ms / 1000 / top) * ih;
+      const band = iw / data.length;
+      const bw = Math.max(4, Math.min(22, (band - 12) / 2));
+      let s = "";
+      for (let v = 0; v <= top; v += step) {
+        s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v * 1000)}" y2="${y(v * 1000)}" stroke="${v ? "var(--grid)" : "var(--axis)"}" />`;
+        s += `<text x="${m.l - 8}" y="${y(v * 1000) + 4}" text-anchor="end">${fmt(v * 1000)}</text>`;
+      }
+      const labelN = band < 46 ? 4 : band < 70 ? 7 : band < 110 ? 12 : 30;
+      data.forEach((r, i) => {
+        const cx = m.l + band * i + band / 2, base = y(0);
+        s += `<g class="col" data-i="${i}"><rect class="hover-bg" x="${m.l + band * i}" y="${m.t}" width="${band}" height="${ih}" fill="transparent" />`;
+        s += `<path d="${bar(cx - bw - 1, base, bw, base - y(r.app))}" fill="${COLORS.app}" />`;
+        s += `<path d="${bar(cx + 1, base, bw, base - y(r.uzex))}" fill="${COLORS.uzex}" />`;
+        s += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${esc(short(r.user, labelN))}</text>`;
+        s += `<rect class="hit" x="${m.l + band * i}" y="${m.t}" width="${band}" height="${ih + m.b}" /></g>`;
+      });
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Har bir foydalanuvchi uchun Oson Birja va UZEX vaqti">${s}</svg>`;
+      bindTips(el, data);
+    }
+
+    // Tejash foizi: + yuqoriga (Oson Birja tezroq), − pastga (UZEX tezroq)
+    function drawPctChart(el, data) {
+      const W = Math.max(280, el.clientWidth), H = 180, m = { t: 10, r: 4, b: 26, l: 44 };
+      const iw = W - m.l - m.r, ih = H - m.t - m.b;
+      const vals = data.map(pct);
+      const hi = Math.max(0, ...vals), lo = Math.min(0, ...vals);
+      const span = Math.max(10, hi - lo);
+      const step = [10, 20, 25, 50, 100].find((s) => span / s <= 4) || 100;
+      const top = Math.ceil(hi / step) * step || (lo < 0 ? 0 : step), bot = Math.floor(lo / step) * step;
+      const y = (p) => m.t + ((top - p) / (top - bot || 1)) * ih;
+      const band = iw / data.length, bw = Math.max(6, Math.min(28, band - 14));
+      let s = "";
+      for (let v = bot; v <= top; v += step) {
+        s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? "var(--axis)" : "var(--grid)"}" />`;
+        s += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}%</text>`;
+      }
+      const labelN = band < 46 ? 4 : band < 70 ? 7 : band < 110 ? 12 : 30;
+      data.forEach((r, i) => {
+        const p = vals[i], cx = m.l + band * i + band / 2, z = y(0);
+        s += `<g class="col" data-i="${i}"><rect class="hover-bg" x="${m.l + band * i}" y="${m.t}" width="${band}" height="${ih}" fill="transparent" />`;
+        s += `<path d="${bar(cx - bw / 2, z, bw, Math.abs(y(p) - z), p >= 0)}" fill="${p >= 0 ? COLORS.app : COLORS.uzex}" />`;
+        s += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${esc(short(r.user, labelN))}</text>`;
+        s += `<rect class="hit" x="${m.l + band * i}" y="${m.t}" width="${band}" height="${ih + m.b}" /></g>`;
+      });
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Oson Birja UZEX'ga nisbatan necha foiz tezroq">${s}</svg>`;
+      bindTips(el, data);
+    }
+
+    function bindTips(el, data) {
+      const tip = $("tip");
+      el.querySelectorAll(".col").forEach((g) => {
+        const r = data[+g.dataset.i];
+        g.addEventListener("pointerenter", () => {
+          g.classList.add("on");
+          const p = pct(r);
+          tip.innerHTML = `<b>${esc(r.user)}</b>` +
+            `<div class="r"><span><i class="sw" style="background:${COLORS.app}"></i>Oson Birja</span><span>${fmt(r.app)}</span></div>` +
+            `<div class="r"><span><i class="sw" style="background:${COLORS.uzex}"></i>UZEX</span><span>${fmt(r.uzex)}</span></div>` +
+            `<div class="r"><span>${p >= 0 ? "Oson Birja tezroq" : "UZEX tezroq"}</span><span>${fmt(Math.abs(r.uzex - r.app))} · ${pctTxt(p)}</span></div>`;
+          tip.hidden = false;
+        });
+        g.addEventListener("pointermove", (e) => {
+          const w = tip.offsetWidth, h = tip.offsetHeight;
+          let x = e.clientX + 14, yy = e.clientY - h - 12;
+          if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+          if (yy < 8) yy = e.clientY + 16;
+          tip.style.left = Math.max(8, x) + "px"; tip.style.top = yy + "px";
+        });
+        g.addEventListener("pointerleave", () => { g.classList.remove("on"); tip.hidden = true; });
+      });
+    }
+    let resizeT;
+    addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(renderStats, 120); });
+
+    function render() {
+      $("loginView").hidden = Boolean(session);
+      $("sessionView").hidden = !session;
+      if (session) {
+        $("userName").textContent = session.user;
+        const c = CATS[session.category];
+        $("catBadge").textContent = c ? `${c.icon} ${c.label}` : "Kategoriyasiz";
+        $("taskHint").textContent = (c ? c.task + " " : "") + "Ikkala sayt tugagach, sessiya avtomatik yopiladi va natija jadvalga qo'shiladi.";
+      } else setTimeout(() => $("nameInput").focus(), 0);
+      renderTimers();
+      renderResults();
+    }
+
+    $("clearBtn").addEventListener("click", () => {
+      if (!results.length || !confirm("Barcha natijalar o'chirilsinmi?")) return;
+      results = []; write(K_RESULTS, results); renderResults();
+    });
+
+    try { localStorage.removeItem("timeTestRows"); } catch {}  // eski versiya kaliti
+    setInterval(tick, 250);
+    render();
+  </script>
+</body>
+</html>

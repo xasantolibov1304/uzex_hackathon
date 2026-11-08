@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import { CATEGORIES, REGIONS, getDaily, getKeyQuotes, getLot, getTodayOffers, getUsdUzs, norm, searchLots, searchPrices } from "./uzex.js";
 import { ENTITY_TYPES, cancelOrder, createOrder, getOrder, getProfile, listOrders, saveProfile, tradingStatus } from "./store.js";
 import { budgetPlan, costBreakdown, estimateMaterials } from "./planner.js";
+import { GRADES, createAlert, listAlerts, marketRef } from "./alerts.js";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const MAX_STEPS = 12;
@@ -50,6 +51,13 @@ Changing orders:
 - "Make it 15 tonnes", "2 ta lot qil" → update_order (only for orders still awaiting confirmation; it shows a new confirmation card).
 - "Cancel it", "bekor qil" → cancel_order. A draft (awaiting confirmation) is cancelled right away. An order already sent (submitted) needs the user's explicit "yes" in a NEW message: first call without confirmed, ask "Rostdan bekor qilaymi?", and only after they agree call again with confirmed: true. Never set confirmed: true on your own.
 Use get_orders to find the order_id when the user says "the last order" / "that order".
+Price alerts (subscriptions):
+- "Benzin narxi 11 mln dan tushsa xabar ber", "AI-92 arzonlasa ayt", "подпиши меня на бензин" → create_price_alert. Only gasoline (benzin) is supported: grade ai80 / ai92 / ai95, or any if the grade is not said. max_price is so'm per TONNE: convert what the user said ("11 million" → 11000000; a per-litre price × 1350 ≈ per tonne for gasoline — say you converted). If no price is given, check search_prices "benzin" and suggest one in a single short form (request_form purpose "other") instead of guessing.
+- After creating: say the app checks UZEX every few minutes and sends a browser notification when a NEW lot at or below that price appears. If the result says notifications are off, tell the user to press "Bildirishnomani yoqish" on the card. If belowNow.count > 0, mention that some listed lots are already at or below that price (they may be old listings) — they can see them on the "Kuzatuv" page.
+- "Obunalarim", "qaysi narxlarni kuzatyapsan?" → get_price_alerts.
+- IMPORTANT — target price not available: when the user asks for gasoline at a specific price or cheaper ("1000 so'mlik benzin", "12 mln dan arzon AI-92 lot top") and search_lots finds NO current lot at or below that price (ignore lots priced far below the market quote — they are outdated listings), you MUST call offer_price_alert with that price BEFORE writing your final reply. Convert the price to so'm per tonne first: a per-litre price × 1350 (e.g. 1000 so'm/litr → 1 350 000 so'm/t). The app shows a card "Narx tushsa xabar beraymi?" with a "Ha, kuzat" button — the user confirms there; do NOT call create_price_alert yourself in this case.
+  Then the final reply: first say plainly there is no lot at that price right now (and, if the price is far below the market quote, say honestly that it is unrealistic and give the market price per litre), then ask the question as the main point: "Narx tushsa xabar beraymi? Kartochkadagi tugmani bosing." Mention the cheapest current options only briefly after that. Never end with a vague "agar xohlasangiz, ayting" — the offer card IS the question.
+  For products other than gasoline alerts are not available yet — just say no lot is available at that price.
 
 Facts about UZEX buying (explain simply when useful; exact fees and requirements must be confirmed with UZEX or a broker): sellers list standard contracts (lots) with a base price ("bazis narx"); trading days are Mon–Fri; the auction can push the final price above the base price; a deposit (% of the lot price) is blocked before trading; payments are cashless; buyers usually participate through a licensed broker; "EXW" = the buyer collects from the seller's warehouse. In this app, sending the order to the exchange is a DEMO (UZEX has no public order API yet) — say so honestly if asked.
 
@@ -185,6 +193,18 @@ const functionDeclarations = [
     order_id: { type: "string" },
     contracts: { type: "integer", minimum: 1, maximum: 1000 },
   }),
+  fd("create_price_alert", "Subscribe the user to a gasoline (benzin) price alert: the app checks new UZEX lots every few minutes and sends a browser push notification when a new lot's price per tonne is at or below max_price. Same grade + region again = updates the price.", {
+    grade: { type: "string", enum: Object.keys(GRADES), description: "ai80 | ai92 | ai95 | any (grade not specified)" },
+    max_price: { type: "number", description: "Target price in so'm per tonne, e.g. 11000000" },
+    region: { type: "string", description: "Optional warehouse region, e.g. 'Toshkent'" },
+  }, ["grade", "max_price"]),
+  fd("offer_price_alert", "Show the user a one-tap card offering a gasoline price alert, prefilled with the price they asked for. Use when no current lot is at or below the requested price. The user confirms on the card (the alert is NOT created by this call).", {
+    grade: { type: "string", enum: Object.keys(GRADES), description: "ai80 | ai92 | ai95 | any (grade not specified)" },
+    max_price: { type: "number", description: "Requested price in so'm per TONNE (per-litre × 1350)" },
+    region: { type: "string", description: "Optional warehouse region" },
+    cheapest_now: { type: "number", description: "Cheapest current realistic lot price per tonne you found, if any" },
+  }, ["grade", "max_price"]),
+  fd("get_price_alerts", "The user's price alerts with target price, current market quote, last check time and lots found so far."),
   fd("cancel_order", "Cancel an order. Drafts (awaiting confirmation) are cancelled immediately. Orders already submitted need confirmed: true, which you may set ONLY after the user explicitly agreed in a new message.", {
     order_id: { type: "string" },
     confirmed: { type: "boolean" },
@@ -231,6 +251,9 @@ function stepLabel(name, a = {}) {
     case "cost_breakdown": return `Lot №${a.lot_id} × ${a.contracts} uchun to'liq xarajatni hisoblayapman`;
     case "update_order": return `Buyurtmani o'zgartiryapman · ${a.contracts} lot`;
     case "cancel_order": return "Buyurtmani bekor qilyapman";
+    case "create_price_alert": return `${GRADES[a.grade]?.label || "Benzin"} narxiga obuna qilyapman · ≤ ${somFmt(a.max_price)} / tonna`;
+    case "get_price_alerts": return "Narx obunalaringizni tekshiryapman";
+    case "offer_price_alert": return "Bu narxda lot yo'q — narx kuzatuvini taklif qilyapman";
     case "show_comparison": return "Solishtirish grafigini chizyapman";
     default: return name;
   }
@@ -253,6 +276,9 @@ function stepDoneLabel(name, a = {}) {
     case "cost_breakdown": return `Lot №${a.lot_id} × ${a.contracts} uchun to'liq xarajatni hisobladim`;
     case "update_order": return `Buyurtmani o'zgartirdim · ${a.contracts} lot`;
     case "cancel_order": return "Buyurtma bo'yicha so'rovni bajardim";
+    case "create_price_alert": return `${GRADES[a.grade]?.label || "Benzin"} narxiga obuna bo'ldim · ≤ ${somFmt(a.max_price)} / tonna`;
+    case "get_price_alerts": return "Narx obunalaringizni ko'rib chiqdim";
+    case "offer_price_alert": return "Narx kuzatuvi taklifini tayyorladim";
     case "show_comparison": return "Solishtirish grafigini chizdim";
     default: return stepLabel(name, a);
   }
@@ -294,6 +320,9 @@ function stepDetail(name, r) {
     }
     case "update_order": return r.error ? r.error : `${r.contracts} lot · ${somFmt(r.totalSom)} · yangi tasdiqlash kartasi`;
     case "cancel_order": return r.status === "needs_confirmation" ? "Tasdiqlash kerak — buyurtma allaqachon yuborilgan" : r.status === "cancelled" ? "Buyurtma bekor qilindi" : "";
+    case "create_price_alert": return r.error ? r.error : (r.notificationsOn ? "Bildirishnoma yoqilgan" : "Bildirishnomani yoqish kerak") + (r.belowNow?.count ? ` · hozir ${r.belowNow.count} ta lot shu narxda yoki arzon` : "");
+    case "offer_price_alert": return r.error ? r.error : `${r.grade} · ≤ ${somFmt(r.maxPricePerTonne)} / tonna · tasdiqlashingizni kutyapman`;
+    case "get_price_alerts": return `${r.alerts?.length ?? 0} ta obuna${r.notificationsOn ? "" : " · bildirishnoma o'chiq"}`;
     default: return "";
   }
 }
@@ -439,6 +468,42 @@ async function runTool(name, a, emit, ctx = {}) {
       emit({ type: "order", order: c });
       return { status: c.status, order_id: c.id, product: c.product };
     }
+    case "create_price_alert": {
+      if (!ctx.deviceId) return { error: "Price alerts need the app's browser id; ask the user to open the Kuzatuv page." };
+      const r = await createAlert({ deviceId: ctx.deviceId, grade: a.grade, region: a.region || "", maxPrice: a.max_price });
+      emit({ type: "alert", alert: r.alert, subscribed: r.subscribed, belowNow: r.belowNow });
+      return {
+        alert_id: r.alert.id, grade: r.alert.gradeLabel, region: r.alert.region || "all regions", maxPricePerTonne: r.alert.maxPrice,
+        marketQuotePerTonne: r.alert.market?.pricePerTonne ?? null, notificationsOn: r.subscribed, belowNow: r.belowNow,
+        note: "Card shown with the alert. Only NEW lots trigger a notification.",
+      };
+    }
+    case "offer_price_alert": {
+      if (!GRADES[a.grade]) return { error: "grade must be ai80, ai92, ai95 or any" };
+      const price = Math.round(Number(a.max_price));
+      if (!Number.isFinite(price) || price < 1_000_000 || price > 100_000_000) {
+        return { error: "max_price must be so'm per TONNE between 1 000 000 and 100 000 000. Convert a per-litre price × 1350 and call again." };
+      }
+      const market = await marketRef(a.grade);
+      const offer = {
+        id: "of_" + crypto.randomBytes(4).toString("hex"), grade: a.grade, gradeLabel: GRADES[a.grade].label, region: String(a.region || "").slice(0, 40),
+        maxPrice: price, market, cheapestNow: Number(a.cheapest_now) > 0 ? Math.round(Number(a.cheapest_now)) : null,
+      };
+      emit({ type: "alert_offer", offer });
+      return {
+        status: "offer_shown", grade: offer.gradeLabel, maxPricePerTonne: price, perLitre: Math.round(price / 1350),
+        marketQuotePerTonne: market?.pricePerTonne ?? null, marketPerLitre: market ? Math.round(market.pricePerTonne / 1350) : null,
+        note: "Card with 'Ha, kuzat' is on screen. In your reply say no lot is at that price now and ask whether to notify them — they answer with the card button.",
+      };
+    }
+    case "get_price_alerts": {
+      if (!ctx.deviceId) return { alerts: [], notificationsOn: false };
+      const r = await listAlerts(ctx.deviceId);
+      return {
+        notificationsOn: r.subscribed, checkEveryMinutes: r.pollMinutes,
+        alerts: r.alerts.map((x) => ({ grade: x.gradeLabel, region: x.region || "all", maxPricePerTonne: x.maxPrice, marketQuotePerTonne: x.market?.pricePerTonne ?? null, lastCheckedAt: x.lastCheckedAt, lotsFound: x.hits.length, cheapestFound: x.hits[0] || null })),
+      };
+    }
     default:
       throw new Error(`Unknown tool ${name}`);
   }
@@ -461,7 +526,7 @@ export const resetSession = (id) => sessions.delete(id);
  *  {type:"thinking"} {type:"step", id, label, status:"running"|"done"|"error", detail}
  *  {type:"lots", items} {type:"order", order} {type:"profile", profile} {type:"reply", text, mood}
  */
-export async function runTask({ sessionId, text, lang = "uz", screen = "" }, emit) {
+export async function runTask({ sessionId, text, lang = "uz", screen = "", deviceId = "" }, emit) {
   const s = session(sessionId);
   if (s.busy) throw Object.assign(new Error("BUSY"), { code: "BUSY" });
   s.busy = true;
@@ -498,7 +563,7 @@ export async function runTask({ sessionId, text, lang = "uz", screen = "" }, emi
           emit({ type: "step", id, tool: fc.name, label: stepLabel(fc.name, fc.args), status: "running" });
           let result;
           try {
-            result = await runTool(fc.name, fc.args ?? {}, emit, { lang: userLang });
+            result = await runTool(fc.name, fc.args ?? {}, emit, { lang: userLang, deviceId });
             emit({ type: "step", id, status: "done", label: stepDoneLabel(fc.name, fc.args), detail: stepDetail(fc.name, result) });
           } catch (e) {
             result = { error: e.message };

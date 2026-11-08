@@ -6,6 +6,7 @@ import { OrderError, applicationText, cancelOrder, confirmOrder, getProfile, lis
 import { agentConfigured, describeAgentError, resetSession, runTask, transcribe } from "./src/agent.js";
 import { speak } from "./src/voice.js";
 import { rateLimit, sameOrigin } from "./src/ratelimit.js";
+import { AlertError, GRADES, checkAlerts, createAlert, deleteAlert, listAlerts, marketRef, pushPublicKey, removeSubscription, saveSubscription, sendTest, startAlertScheduler } from "./src/alerts.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === "production" || process.argv.includes("--production");
@@ -18,7 +19,7 @@ app.use(express.json({ limit: "20kb" }));
 
 const wrap = (fn) => (req, res) =>
   Promise.resolve(fn(req, res)).catch((err) => {
-    if (err instanceof OrderError) return res.status(400).json({ error: err.message });
+    if (err instanceof OrderError || err instanceof AlertError) return res.status(400).json({ error: err.message });
     console.error(err?.message || err);
     res.status(502).json({ error: "UZEX ma'lumotlarini olishda xato. Birozdan so'ng qayta urinib ko'ring." });
   });
@@ -57,9 +58,35 @@ app.post("/api/orders/:id/confirm", wrap(async (req, res) => res.json(confirmOrd
 app.post("/api/orders/:id/cancel", wrap(async (req, res) => res.json(cancelOrder(req.params.id))));
 app.get("/api/orders/:id/application", wrap(async (req, res) => res.type("text/plain; charset=utf-8").send(applicationText(req.params.id))));
 
+// ---------- narx kuzatuvi: push-bildirishnoma obunalari ----------
+// deviceId — brauzerdagi tasodifiy identifikator (localStorage); avtorizatsiya yo'q, bitta qurilma = bitta obunachi
+const alertLimit = rateLimit({ max: Number(process.env.ALERT_LIMIT ?? 60), windowMs: 10 * 60_000 });
+const dev = (req) => String(req.body?.deviceId ?? req.query.deviceId ?? "");
+app.get("/api/push/key", (_req, res) => res.json({ publicKey: pushPublicKey(), grades: Object.entries(GRADES).map(([id, g]) => ({ id, label: g.label })) }));
+app.post("/api/push/subscribe", sameOrigin, alertLimit, wrap(async (req, res) => res.json(saveSubscription(dev(req), req.body?.subscription))));
+app.post("/api/push/unsubscribe", sameOrigin, alertLimit, wrap(async (req, res) => res.json(removeSubscription(dev(req)))));
+app.post("/api/push/test", sameOrigin, alertLimit, wrap(async (req, res) => res.json(await sendTest(dev(req)))));
+app.get("/api/alerts", wrap(async (req, res) => res.json(await listAlerts(dev(req)))));
+app.get("/api/alerts/market", wrap(async (req, res) => {
+  const g = String(req.query.grade || "");
+  if (!GRADES[g]) return res.status(400).json({ error: "Benzin turi noto'g'ri." });
+  res.json({ grade: g, market: await marketRef(g) });
+}));
+app.post("/api/alerts", sameOrigin, alertLimit, wrap(async (req, res) => {
+  const { grade, region, maxPrice } = req.body || {};
+  res.json(await createAlert({ deviceId: dev(req), grade, region, maxPrice }));
+}));
+app.delete("/api/alerts/:id", sameOrigin, alertLimit, wrap(async (req, res) => res.json(deleteAlert(dev(req), req.params.id))));
+app.post("/api/alerts/check", sameOrigin, alertLimit, wrap(async (req, res) => {
+  const id = dev(req);
+  await listAlerts(id); // deviceId tekshiruvi
+  const r = await checkAlerts(id);
+  res.json({ ...r, ...(await listAlerts(id)) });
+}));
+
 // ---------- agent: vazifani bajarish (SSE oqimi) ----------
 app.post("/api/agent/stream", async (req, res) => {
-  const { sessionId, text, lang, screen } = req.body || {};
+  const { sessionId, text, lang, screen, deviceId } = req.body || {};
   if (typeof sessionId !== "string" || !sessionId || typeof text !== "string" || !text.trim()) {
     return res.status(400).json({ error: "Vazifa bo'sh." });
   }
@@ -69,7 +96,7 @@ app.post("/api/agent/stream", async (req, res) => {
   const emit = (ev) => { if (!closed) res.write(`data: ${JSON.stringify(ev)}\n\n`); };
   const ping = setInterval(() => !closed && res.write(": ping\n\n"), 15_000);
   try {
-    await runTask({ sessionId: sessionId.slice(0, 64), text: text.slice(0, 2000), lang: String(lang || "uz").slice(0, 2), screen: String(screen || "").slice(0, 120) }, emit);
+    await runTask({ sessionId: sessionId.slice(0, 64), text: text.slice(0, 2000), lang: String(lang || "uz").slice(0, 2), screen: String(screen || "").slice(0, 120), deviceId: String(deviceId || "").slice(0, 64) }, emit);
   } catch (err) {
     console.error("[agent]", err?.status ?? "", err?.message);
     emit({ type: "error", error: describeAgentError(err) });
@@ -126,5 +153,6 @@ if (isProd) {
 const PORT = Number(process.env.PORT) || 3000;
 app.listen(PORT, () => {
   console.log(`UZEX 2.0 (agent): http://localhost:${PORT}`);
+  startAlertScheduler(); // benzin narxi obunalarini fon rejimida tekshirish
   if (!agentConfigured()) console.log("⚠  GEMINI_API_KEY topilmadi — AI agent o'chiq (.env faylga qo'shing).");
 });

@@ -4,6 +4,7 @@ import ComparisonCard from "./ComparisonCard.jsx";
 import FormCard from "./FormCard.jsx";
 import OrderCard from "./OrderCard.jsx";
 import PriceCards from "./PriceCards.jsx";
+import { AlertFeedCard, AlertOfferCard } from "./AlertsView.jsx";
 
 const Run = memo(function Run({ run, order, lang, ctx }) {
   return (
@@ -38,6 +39,12 @@ const Run = memo(function Run({ run, order, lang, ctx }) {
       ))}
       {run.forms.map((f, i) => (
         <FormCard key={`${f.id}_${i}`} form={f} isBusy={ctx.isBusy} toast={ctx.toast} onProfileSaved={ctx.onProfileSaved} sendTask={ctx.sendTask} />
+      ))}
+      {(run.alertOffers || []).map((o) => (
+        <AlertOfferCard key={o.id} offer={o} toast={ctx.toast} onOpenAlerts={ctx.openAlerts} />
+      ))}
+      {(run.alerts || []).map((a, i) => (
+        <AlertFeedCard key={`${a.alert.id}_${i}`} data={a} toast={ctx.toast} onOpenAlerts={ctx.openAlerts} />
       ))}
       <div className="order-slot">{order && <OrderCard order={order} lang={lang} onAction={ctx.orderAction} />}</div>
       {/* Matn oldin escape qilinadi (mdLite) — xavfsiz */}

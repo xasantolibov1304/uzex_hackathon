@@ -22,6 +22,10 @@ Foydalanuvchi bajaradigan yagona qadam — **"Tasdiqlash"** tugmasini bosish (pu
 - **Tillar:** UZ / RU / EN. Agent tanlangan tilda javob beradi.
 - **Narxlar, Sotuvda, Buyurtmalar** sahifalari. Ularda istalgan narx yoki lotni "✦ Agentga topshirish" tugmasi bilan agentga berish mumkin.
 - **Xarid arizasi** avtomatik to'ldiriladi. Undan nusxa olish yoki chop etish mumkin.
+- **Narx kuzatuvi (Kuzatuv bo'limi).** Benzin (AI-80/92/95) narxiga obuna: yangi lotning 1 tonna narxi siz kutgan narxga teng yoki arzon bo'lsa, brauzerga push-xabar keladi. Agentga ham aytish mumkin: *"AI-92 tonnasi 13 mln dan tushsa xabar ber"*.
+  - Server har 10 daqiqada (`ALERT_POLL_MIN`) UZEX lotlarini tekshiradi. Bir xil tur va hudud bo'yicha obunalar uchun UZEX'ga bitta so'rov ketadi.
+  - Faqat obunadan **keyin paydo bo'lgan** lotlar haqida xabar beriladi, chunki UZEX ro'yxatida eskirgan narxli eski lotlar ham bor. Bozor kotirovkasidan ikki baravar arzon lot noto'g'ri ma'lumot deb hisoblanadi va o'tkazib yuboriladi.
+  - Har bir lot bo'yicha xabar bir marta keladi. Xabar bosilganda o'sha lot oynasi ochiladi.
 
 ## Ma'lumot manbalari (hammasi real, mock yo'q)
 
@@ -56,6 +60,7 @@ Ovoz bilan kiritish mikrofon ruxsatini talab qiladi. Brauzer buni faqat `localho
 | `server.js` | REST API va agent uchun SSE oqimi (`/api/agent/stream`), ovozni matnga aylantirish (`/api/transcribe`) |
 | `src/agent.js` | Avtonom Gemini agent. Tool'lar: `get_overview`, `search_prices`, `get_price_trend`, `search_lots`, `get_lot`, `get_profile`, `save_profile`, `create_order`, `get_orders` |
 | `src/uzex.js` | UZEX va CBU ma'lumotlari: parse, kesh, toifalar, o'zbekcha→ruscha qidiruv |
+| `src/alerts.js` | Narx kuzatuvi: obunalar (`data/alerts.json`), push kalitlari (`data/vapid.json`), fon tekshiruvi, web-push |
 | `src/store.js` | Profil, buyurtmalar, DEMO yuborish, xarid arizasi (`data/db.json`) |
 | `client/` | Frontend (React + Vite). Dev rejimida `server.js` Vite'ni middleware sifatida ishlatadi (bitta port) |
 | `client/src/App.jsx` | Asosiy holat, agent oqimi (SSE), navigatsiya |
@@ -70,4 +75,5 @@ Ovoz bilan kiritish mikrofon ruxsatini talab qiladi. Brauzer buni faqat `localho
 
 - Birjaga yuborish DEMO rejimida ishlaydi. Yakuniy narx real savdoda aniqlanadi.
 - Brauzerlarda o'zbek tilidagi ovoz kam uchraydi. Ovoz bo'lmasa, javob matn bo'lib chiqadi va avatar matn ritmiga mos harakatlanadi.
-- Bitta umumiy foydalanuvchi bor (avtorizatsiya yo'q).
+- Bitta umumiy foydalanuvchi bor (avtorizatsiya yo'q). Narx obunalari brauzerga bog'lanadi (`localStorage` dagi qurilma ID).
+- Push-xabar brauzer ochiq bo'lganda keladi (sayt tabi yopiq bo'lsa ham). iPhone'da faqat sayt bosh ekranga qo'shilganda ishlaydi. Push `localhost` yoki HTTPS'da ishlaydi.

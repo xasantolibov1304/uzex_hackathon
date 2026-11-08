@@ -3,7 +3,7 @@ import { api } from "../lib/api.js";
 import { cls, esc, pct, qty, som } from "../lib/format.js";
 import { EmptyBox, Skeleton } from "./PricesView.jsx";
 
-function ModalShell({ title, sub, onClose, children }) {
+export function ModalShell({ title, sub, onClose, children }) {
   return (
     <div className="modal" id="modal">
       <div className="modal-backdrop" onClick={onClose}></div>
