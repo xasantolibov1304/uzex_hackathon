@@ -13,11 +13,13 @@ import AgentView from "./components/AgentView.jsx";
 import PricesView from "./components/PricesView.jsx";
 import LotsView from "./components/LotsView.jsx";
 import OrdersView from "./components/OrdersView.jsx";
+import AlertsView from "./components/AlertsView.jsx";
+import { deviceId } from "./lib/push.js";
 import { ApplicationModal, LotModal, PriceModal } from "./components/Modals.jsx";
 
 const SESSION = sessionId();
-const TABS = [["agent", "Agent"], ["prices", "Narxlar"], ["lots", "Sotuvda"], ["orders", "Buyurtmalar"]];
-const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), forms: [...m.forms] });
+const TABS = [["agent", "Agent"], ["prices", "Narxlar"], ["lots", "Sotuvda"], ["alerts", "Kuzatuv"], ["orders", "Buyurtmalar"]];
+const snapshot = (m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), forms: [...m.forms], alerts: [...m.alerts], alertOffers: [...m.alertOffers] });
 
 export default function App() {
   const [cfg, setCfg, cfgRef] = useLiveState({ aiEnabled: false, categories: [], regions: [] });
@@ -120,7 +122,7 @@ export default function App() {
     setTaskText("");
     const tt = () => tr(langRef.current);
     const n = ++seq.current;
-    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, collapsed: false, steps: [], lots: null, forms: [], orderId: null, replyHtml: "" };
+    const run = { kind: "run", id: `r${n}`, title: tt().working, count: "", stepsHidden: true, collapsed: false, steps: [], lots: null, forms: [], alerts: [], alertOffers: [], orderId: null, replyHtml: "" };
     runsRef.current.set(run.id, run);
     setFeed((f) => [...f, ...(hidden ? [] : [{ kind: "user", id: `u${n}`, text }]), snapshot(run)]);
     const commit = () => { const snap = snapshot(run); setFeed((f) => f.map((it) => (it.id === run.id ? snap : it))); };
@@ -218,6 +220,20 @@ export default function App() {
         case "profile":
           if (tabRef.current === "orders") loadProfile();
           break;
+        case "alert_offer":
+          await closeThink();
+          run.alertOffers.push(ev.offer);
+          commit();
+          scrollFeed();
+          await sleep(400);
+          break;
+        case "alert":
+          await closeThink();
+          run.alerts.push({ alert: ev.alert, belowNow: ev.belowNow, subscribed: ev.subscribed });
+          commit();
+          scrollFeed();
+          await sleep(400);
+          break;
         case "form":
           await closeThink();
           run.forms.push(ev.form);
@@ -272,7 +288,7 @@ export default function App() {
     })();
 
     try {
-      await streamAgent({ sessionId: SESSION, text, lang: langRef.current, screen: tabRef.current }, onEvent);
+      await streamAgent({ sessionId: SESSION, text, lang: langRef.current, screen: tabRef.current, deviceId: deviceId() }, onEvent);
     } catch (e) {
       push({ type: "error", error: e.message });
     } finally {
@@ -317,7 +333,7 @@ export default function App() {
     }
   }
   async function saveProfile(body) {
-    try { await api("/api/profile", { method: "PUT", body }); toast("Saqlandi"); loadProfile(); } catch (e) { toast(e.message); }
+    try { await api("/api/profile", { method: "PUT", body }); toast("Saqlandi"); loadProfile(); return true; } catch (e) { toast(e.message); return false; }
   }
 
   // ---------- narxlar va lotlar ----------
@@ -370,8 +386,9 @@ export default function App() {
 
   // Lenta komponentlari uchun barqaror (o'zgarmas) funksiyalar — memo ishlashi uchun
   const fns = useRef(null);
-  fns.current = { sendTask, toggleSteps, openLot, orderAction, toast, onProfileSaved: () => { if (tabRef.current === "orders") loadProfile(); } };
+  fns.current = { sendTask, toggleSteps, openLot, orderAction, toast, setTab, onProfileSaved: () => { if (tabRef.current === "orders") loadProfile(); } };
   const ctx = useMemo(() => ({
+    openAlerts: () => fns.current.setTab("alerts"),
     sendTask: (...a) => fns.current.sendTask(...a),
     toggleSteps: (id) => fns.current.toggleSteps(id),
     openLot: (id) => fns.current.openLot(id),
@@ -419,6 +436,13 @@ export default function App() {
       setReady(true);
       loadOverview();
       loadOrders();
+      // Push-xabar bosilganda: /?lot=ID — o'sha lot oynasi ochiladi
+      const lot = new URLSearchParams(location.search).get("lot");
+      if (lot && /^[\w-]{1,32}$/.test(lot)) {
+        history.replaceState(null, "", location.pathname);
+        setTab("alerts");
+        setModal({ type: "lot", id: lot, seq: ++seq.current });
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -479,6 +503,7 @@ export default function App() {
           ordersById={ordersById} lang={lang} stageSlotRef={stageSlotRef} quotes={overview?.quotes} trading={overview?.trading} usd={overview?.usdUzs} ctx={ctx} />
         <PricesView active={tab === "prices"} categories={cfg.categories} prices={prices} overview={overview} onOpenPrice={openPrice} />
         <LotsView active={tab === "lots"} regions={cfg.regions} lots={lots} onOpenLot={openLot} />
+        <AlertsView active={tab === "alerts"} regions={cfg.regions} toast={toast} onOpenLot={openLot} />
         <OrdersView active={tab === "orders"} orders={orders} profile={profile} profileVer={profileVer} lang={lang}
           onSaveProfile={saveProfile} orderAction={ctx.orderAction} />
       </main>

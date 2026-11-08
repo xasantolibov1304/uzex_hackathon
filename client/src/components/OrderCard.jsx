@@ -3,7 +3,8 @@ import { tr } from "../lib/i18n.js";
 import { dateUz, qty, som } from "../lib/format.js";
 
 // Buyurtma kartasi (agent ekranida ham, "Buyurtmalar" sahifasida ham)
-export default function OrderCard({ order: o, lang, onAction }) {
+// embedded — ro'yxat qatori ichida ochilganda: sarlavha (nom, summa, holat) qatorning o'zida, shuning uchun yashiriladi
+export default function OrderCard({ order: o, lang, onAction, embedded = false }) {
   const [pending, setPending] = useState(null);
   const t = tr(lang);
   const st = { awaiting_confirmation: t.awaiting, submitted: t.submitted, cancelled: t.cancelled }[o.status];
@@ -15,8 +16,8 @@ export default function OrderCard({ order: o, lang, onAction }) {
   }
 
   return (
-    <div className="order-card" data-order={o.id}>
-      <div className="oc-top">
+    <div className={"order-card" + (embedded ? " embedded" : "")} data-order={o.id}>
+      {!embedded && <div className="oc-top">
         <div>
           <div className="oc-label">{t.order} · lot №{o.lotId}</div>
           <div className="oc-title">{o.productUz || o.product}</div>
@@ -28,7 +29,7 @@ export default function OrderCard({ order: o, lang, onAction }) {
           <div style={{ textAlign: "right", marginTop: 4 }}><span className={`status ${o.status}`}>{st}</span></div>
           {o.viaBroker ? <div style={{ textAlign: "right", marginTop: 4 }}><span className="status broker">{t.viaBroker}</span></div> : null}
         </div>
-      </div>
+      </div>}
       <dl className="kv">
         <dt>Miqdor</dt><dd>{o.contracts} lot × {qty(o.qtyPerContract)} {o.unit} = <b>{qty(o.quantity)} {o.unit}</b></dd>
         <dt>Depozit</dt><dd>{o.depositPct ?? "—"}% — {som(o.depositSum)}</dd>

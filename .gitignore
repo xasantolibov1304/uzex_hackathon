@@ -5,3 +5,5 @@ data/*.tmp
 dist/
 voice-samples/
 ui-references/
+data/alerts.json
+data/vapid.json

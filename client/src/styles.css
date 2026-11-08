@@ -457,3 +457,118 @@ pre.app { white-space: pre-wrap; font: 13px/1.55 ui-monospace, SFMono-Regular, M
 /* Jismoniy shaxs: broker orqali xarid belgisi va formadagi izoh */
 .status.broker { background: var(--blue-bg); color: #1d4fd8; }
 .fc-note { margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: #6b4a00; background: var(--warn-bg); border-radius: 12px; padding: 9px 12px; }
+
+/* ---------- Narx kuzatuvi (push obunalar) ---------- */
+.btn.sm { padding: 8px 14px; font-size: 13.5px; }
+.push-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+.push-row.on { justify-content: flex-start; font-weight: 550; }
+.push-row.on .btn { margin-left: auto; }
+.push-row.compact { margin-top: 10px; font-size: 13px; }
+.push-row.compact.on { font-weight: 500; color: var(--muted); }
+.push-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 4px var(--up-bg); flex: none; }
+.push-note { color: var(--muted); font-size: 13.5px; flex: 1 1 260px; }
+.alert-form { display: flex; flex-direction: column; gap: 12px; }
+.alert-form h3 { margin: 0; }
+.af-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; align-items: end; }
+.af-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.af-chips .chip { box-shadow: none; background: var(--surface-2); }
+.af-chips .chip.active { background: var(--ink); color: #fff; }
+.af-ref { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14px;
+  background: var(--surface-2); border-radius: 14px; padding: 10px 14px; }
+.af-quick { display: inline-flex; gap: 6px; }
+.af-quick .chip { padding: 5px 11px; font-size: 13px; }
+.af-submit { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.af-done { font-size: 14px; background: var(--up-bg); color: #0b5d2e; border-radius: 14px; padding: 10px 14px; }
+.alerts-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 10px; }
+.alerts-head h3 { margin: 0; font-size: 17px; font-weight: 650; }
+.alerts-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; align-items: start; }
+.alert-card { background: var(--surface); box-shadow: var(--shadow); border-radius: 22px; padding: 16px 18px; }
+.alert-card.feed { margin: 10px 0; max-width: 520px; }
+.ac-head { display: flex; gap: 12px; align-items: flex-start; }
+.ac-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 19px; background: var(--warn-bg); }
+.ac-main { flex: 1; min-width: 0; }
+.ac-title { font-weight: 650; }
+.ac-sub { font-size: 12.5px; color: var(--muted); }
+.ac-status { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.err-t { color: var(--down); }
+.icon-x { border: 0; background: var(--surface-2); color: var(--muted); width: 30px; height: 30px; border-radius: 50%; flex: none; }
+.icon-x:hover { background: var(--down-bg); color: var(--down); }
+.ac-hits { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+.link-btn { border: 0; background: none; padding: 0; margin-top: 10px; color: var(--blue); font-size: 13px; font-weight: 550; }
+.link-btn:hover { text-decoration: underline; }
+@media (max-width: 760px) {
+  .af-grid { grid-template-columns: 1fr; }
+  .alerts-list { grid-template-columns: 1fr; }
+}
+.ac-hits .peek { flex: none; width: auto; background: var(--surface-2); box-shadow: none; }
+.offer-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.alert-card.offer .ac-ico { background: var(--blue-bg); }
+.alerts-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.af-done { margin-bottom: 4px; }
+.modal .alert-form .af-ref { background: var(--surface); }
+.modal .alert-form .field input, .modal .alert-form .field select { background: var(--surface); }
+.modal .af-chips .chip { background: var(--surface); }
+.modal .af-chips .chip.active { background: var(--ink); }
+@media (max-width: 560px) { .alerts-head { flex-wrap: wrap; } }
+.modal .af-grid { grid-template-columns: 1fr 1fr; }
+.modal .af-grid .field:first-child { grid-column: 1 / -1; }
+@media (max-width: 560px) { .modal .af-grid { grid-template-columns: 1fr; } }
+
+/* Buyurtmalar: "Xaridor ma'lumotlari" tugmasi + popup */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.page-head .page-title { margin-bottom: 0; }
+.profile-btn { display: flex; align-items: center; gap: 12px; text-align: left; border: 0; background: var(--surface); box-shadow: var(--shadow);
+  border-radius: 18px; padding: 10px 16px 10px 10px; max-width: 100%; transition: box-shadow .15s, transform .15s; }
+.profile-btn:hover:not(:disabled) { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
+.profile-btn:disabled { opacity: .6; cursor: default; }
+.pb-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; background: var(--surface-2); }
+.pb-text { display: flex; flex-direction: column; min-width: 0; }
+.pb-text b { font-weight: 650; font-size: 14.5px; }
+.pb-sub { font-size: 12.5px; color: var(--up); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+.pb-sub.warn { color: #8a5a00; }
+.modal .profile-form { grid-template-columns: 1fr 1fr; margin-top: 4px; }
+.modal .profile-form .field input, .modal .profile-form .field select { background: var(--surface); }
+.profile-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+@media (max-width: 560px) {
+  .modal .profile-form { grid-template-columns: 1fr; }
+  .profile-btn { width: 100%; }
+  .pb-sub { max-width: none; }
+}
+
+/* Buyurtmalar: kartalar ⇄ ro'yxat, ro'yxatda ochiladigan qatorlar */
+.orders-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+.orders-bar-r { display: flex; align-items: center; gap: 14px; }
+.view-toggle { display: inline-flex; padding: 3px; gap: 2px; background: var(--surface); box-shadow: var(--shadow); border-radius: 12px; }
+.view-toggle button { border: 0; background: none; width: 34px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: var(--faint); }
+.view-toggle button svg { width: 17px; height: 17px; fill: currentColor; }
+.view-toggle button:hover { color: var(--text); }
+.view-toggle button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.orders-list { display: flex; flex-direction: column; gap: 8px; }
+.order-row { background: var(--surface); box-shadow: var(--shadow); border-radius: 18px; overflow: hidden; animation: rise .3s ease; }
+.order-row.muted .or-title, .order-row.muted .or-total { color: var(--muted); }
+.or-head { width: 100%; display: grid; grid-template-columns: 150px minmax(0, 1fr) 120px 110px 170px 20px; align-items: center; gap: 14px;
+  border: 0; background: none; text-align: left; padding: 14px 18px; color: inherit; font: inherit; }
+.or-head:hover { background: var(--surface-2); }
+.or-head .status { justify-self: start; }
+.or-main { display: flex; flex-direction: column; min-width: 0; }
+.or-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.or-sub { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.or-col { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; font-size: 14px; white-space: nowrap; }
+.or-col small { font-size: 12px; color: var(--muted); }
+.or-total { text-align: right; font-weight: 650; align-items: flex-end; }
+.or-chev { color: var(--muted); transition: transform .2s; text-align: center; }
+.order-row.open .or-chev { transform: rotate(180deg); }
+.order-row.open .or-head { border-bottom: 1px solid var(--border); }
+.or-body { padding: 4px 18px 16px; animation: rise .2s ease; }
+.order-card.embedded { box-shadow: none; padding: 0; background: none; animation: none; border-radius: 0; }
+.order-card.embedded .kv { margin-top: 12px; }
+@media (max-width: 860px) {
+  .or-head { grid-template-columns: minmax(0, 1fr) auto 20px; grid-template-areas: "main total chev" "status qty chev"; row-gap: 6px; }
+  .or-head .status { grid-area: status; }
+  .or-main { grid-area: main; }
+  .or-qty { grid-area: qty; align-items: flex-end; }
+  .or-total { grid-area: total; }
+  .or-chev { grid-area: chev; }
+  .or-date { display: none; }
+  .or-qty small { display: none; }
+}
